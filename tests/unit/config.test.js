@@ -11,6 +11,9 @@ import {
   parseDurationMinutes,
   saveConfig,
 } from "../../public/config.js";
+import { defaultStyles } from "../../public/styles-core.js";
+
+const withDefaults = (overrides) => ({ ...defaultConfig(), ...overrides });
 
 /** Minimal in-memory stand-in for localStorage. */
 function memoryStorage(initial = {}) {
@@ -33,8 +36,8 @@ const throwingStorage = {
 };
 
 describe("defaultConfig", () => {
-  it("defaults to a 5 minute timer", () => {
-    assert.deepEqual(defaultConfig(), { durationMinutes: 5 });
+  it("defaults to a 5 minute timer with the built-in styles", () => {
+    assert.deepEqual(defaultConfig(), { durationMinutes: 5, styles: defaultStyles() });
   });
 
   it("returns a fresh object each time", () => {
@@ -90,7 +93,7 @@ describe("normalizeConfig", () => {
   });
 
   it("keeps a valid duration", () => {
-    assert.deepEqual(normalizeConfig({ durationMinutes: 12 }), { durationMinutes: 12 });
+    assert.deepEqual(normalizeConfig({ durationMinutes: 12 }), withDefaults({ durationMinutes: 12 }));
   });
 
   it("replaces an invalid duration with the default", () => {
@@ -99,7 +102,14 @@ describe("normalizeConfig", () => {
   });
 
   it("drops unknown keys", () => {
-    assert.deepEqual(normalizeConfig({ durationMinutes: 3, extra: true }), { durationMinutes: 3 });
+    assert.deepEqual(normalizeConfig({ durationMinutes: 3, extra: true }), withDefaults({ durationMinutes: 3 }));
+  });
+
+  it("normalizes styles, restoring missing built-ins", () => {
+    const config = normalizeConfig({ styles: [{ id: "active", name: "Go", enabled: false }] });
+    assert.deepEqual(config.styles.map((s) => s.id), ["active", "inactive", "starting-soon", "overtime"]);
+    assert.equal(config.styles[0].name, "Go");
+    assert.equal(config.styles[0].enabled, false);
   });
 });
 
@@ -110,7 +120,7 @@ describe("loadConfig", () => {
 
   it("reads a stored config", () => {
     const storage = memoryStorage({ [CONFIG_KEY]: JSON.stringify({ durationMinutes: 30 }) });
-    assert.deepEqual(loadConfig(storage), { durationMinutes: 30 });
+    assert.deepEqual(loadConfig(storage), withDefaults({ durationMinutes: 30 }));
   });
 
   it("returns defaults for corrupt JSON", () => {
@@ -129,7 +139,7 @@ describe("saveConfig / hasStoredConfig", () => {
     assert.equal(hasStoredConfig(storage), false);
     assert.equal(saveConfig(storage, { durationMinutes: 7.5 }), true);
     assert.equal(hasStoredConfig(storage), true);
-    assert.deepEqual(loadConfig(storage), { durationMinutes: 7.5 });
+    assert.deepEqual(loadConfig(storage), withDefaults({ durationMinutes: 7.5 }));
   });
 
   it("stores a normalized config", () => {

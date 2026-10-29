@@ -51,6 +51,23 @@ export class TimerPage {
     this.configDuration = page.getByLabel("Timer duration (minutes)");
     this.configSave = this.configDialog.getByRole("button", { name: "Save" });
     this.configCancel = this.configDialog.getByRole("button", { name: "Cancel" });
+    this.styleList = page.locator("#style-list");
+    this.addStyle = page.getByRole("button", { name: "Add style" });
+    this.styleDialog = page.locator("#style-dialog");
+    this.stylePreview = page.locator("#style-preview");
+    this.styleName = this.styleDialog.getByLabel("Name");
+    this.styleStart = this.styleDialog.getByLabel("Starts at (minutes from zero)");
+    this.stylePlusDuration = this.styleDialog.getByLabel("plus the timer duration");
+    this.styleBackground = this.styleDialog.getByLabel("Background");
+    this.styleColor = this.styleDialog.getByLabel("Text color");
+    this.styleFont = this.styleDialog.getByLabel("Font");
+    this.styleWeight = this.styleDialog.getByLabel("Weight");
+    this.styleSize = this.styleDialog.getByLabel(/^Size/);
+    this.styleShadow = this.styleDialog.getByLabel("Text shadow");
+    this.styleEnabled = this.styleDialog.getByLabel("Enabled");
+    this.styleDelete = this.styleDialog.getByRole("button", { name: "Delete" });
+    this.styleDone = this.styleDialog.getByRole("button", { name: "Done" });
+    this.styleCancel = this.styleDialog.getByRole("button", { name: "Cancel" });
     this.startPause = page.locator("#start-pause");
     this.reset = page.getByRole("button", { name: "Reset" });
     this.fullscreen = page.locator("#fullscreen");
@@ -86,6 +103,43 @@ export class TimerPage {
     await this.configDuration.fill(String(minutes));
     await this.configSave.click();
     await expect(this.configDialog).toBeHidden();
+  }
+
+  /** The row in the style list for a style. */
+  styleRow(name) {
+    return this.configDialog.getByRole("button", { name: `Edit ${name}`, exact: true });
+  }
+
+  styleToggle(name) {
+    return this.configDialog.getByRole("checkbox", { name: `Enable ${name}`, exact: true });
+  }
+
+  async editStyle(name) {
+    await this.styleRow(name).click();
+    await expect(this.styleDialog).toBeVisible();
+  }
+
+  /** Names in the style list, top to bottom. */
+  async styleNames() {
+    return this.styleList.locator(".style-name").allTextContents();
+  }
+
+  async saveConfig() {
+    await this.configSave.click();
+    await expect(this.configDialog).toBeHidden();
+  }
+
+  /** The id of the style currently applied to the page ("" for none). */
+  async currentStyle() {
+    return this.page.locator("body").getAttribute("data-style");
+  }
+
+  async expectStyle(id) {
+    await expect(this.page.locator("body")).toHaveAttribute("data-style", id);
+  }
+
+  async background() {
+    return this.page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   }
 
   async storedConfig() {

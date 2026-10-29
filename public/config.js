@@ -2,13 +2,14 @@
 // Storage is passed in so the logic can be unit tested without a browser.
 
 import { DEFAULT_MINUTES } from "./timer-core.js";
+import { defaultStyles, normalizeStyles } from "./styles-core.js";
 
 export const CONFIG_KEY = "scheduled-timer:config";
 // Up to a day; anything longer isn't a presentation timer.
 export const MAX_DURATION_MINUTES = 24 * 60;
 
 export function defaultConfig() {
-  return { durationMinutes: DEFAULT_MINUTES };
+  return { durationMinutes: DEFAULT_MINUTES, styles: defaultStyles() };
 }
 
 /**
@@ -33,6 +34,7 @@ export function normalizeConfig(raw) {
   if (raw && typeof raw === "object") {
     const duration = parseDurationMinutes(raw.durationMinutes);
     if (duration !== null) config.durationMinutes = duration;
+    config.styles = normalizeStyles(raw.styles);
   }
   return config;
 }

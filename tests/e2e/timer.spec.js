@@ -88,8 +88,22 @@ test.describe("timer", () => {
 
   test("shows over time in red", async ({ timer }) => {
     await timer.open();
-    const before = await timer.display.evaluate((el) => getComputedStyle(el).color);
     await timer.setMinutes(0.1);
+    await timer.click(timer.startPause);
+    await timer.advance(7 * SECOND);
+    await expect(timer.display).toHaveText("-00:01");
+    // The Overtime style: bright red background.
+    expect(await timer.background()).toBe("rgb(229, 20, 27)");
+  });
+
+  test("shows over time in red text when no style applies", async ({ timer }) => {
+    await timer.open();
+    await timer.storeConfig({
+      durationMinutes: 0.1,
+      styles: ["inactive", "starting-soon", "active", "overtime"].map((id) => ({ id, enabled: false })),
+    });
+    await timer.page.reload();
+    const before = await timer.display.evaluate((el) => getComputedStyle(el).color);
     await timer.click(timer.startPause);
     await timer.advance(7 * SECOND);
     await expect(timer.display).toHaveText("-00:01");
