@@ -8,7 +8,7 @@
     "dev": "wrangler pages dev",
     "deploy": "wrangler pages deploy",
     "test": "npm run test:unit && npm run test:e2e && npm run coverage",
-    "test:unit": "c8 --temp-directory coverage/.v8/unit --reports-dir coverage/unit node --test tests/unit/",
+    "test:unit": "c8 --temp-directory coverage/.v8/unit --reports-dir coverage/unit node --test \"tests/unit/**/*.test.js\"",
     "test:e2e": "playwright test",
     "coverage": "node scripts/coverage-report.js",
     "serve": "node tests/support/static-server.js"
