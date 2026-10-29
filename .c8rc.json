@@ -1,0 +1,6 @@
+{
+  "all": true,
+  "src": ["public"],
+  "include": ["public/**/*.js"],
+  "reporter": ["text", "html", "lcov"]
+}

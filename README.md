@@ -36,3 +36,19 @@ npm run deploy  # wrangler pages deploy
 ```
 
 Any static file server works too, e.g. `python3 -m http.server -d public`.
+
+## Testing
+
+```sh
+npm install
+npx playwright install chromium   # once; add --with-deps on a fresh Linux machine
+npm test
+```
+
+`npm test` runs, in order:
+
+- **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule). Prints unit coverage.
+- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, reloads, keyboard shortcuts, and auto-hiding controls.
+- **Coverage** (`npm run coverage`): merges V8 coverage from both suites and prints a combined report for `public/`. HTML and `lcov.info` reports are written to `coverage/`.
+
+Each step can also be run on its own. CI runs `npm test` on every push to `main` and on pull requests.
