@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scheduled Timer</title>
   <meta name="description" content="A speaker tool that starts a countdown timer at a specific time.">
+  <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body data-state="idle">
@@ -48,6 +49,16 @@
         <p id="config-duration-pending" class="hint" hidden>The new duration applies when the current timer is reset.</p>
       </div>
 
+      <section class="field" aria-labelledby="styles-heading">
+        <div class="section-header">
+          <h3 id="styles-heading">Styles</h3>
+          <button type="button" id="add-style">Add style</button>
+        </div>
+        <p class="hint">Each style starts at a number of minutes from zero: positive before, negative over time.
+          The closest to zero applies.</p>
+        <ul id="style-list" class="style-list" aria-labelledby="styles-heading"></ul>
+      </section>
+
       <p id="config-storage-error" class="error" role="alert" hidden>
         Settings couldn't be saved in this browser, so they will be lost on reload.
       </p>
@@ -55,6 +66,74 @@
       <div class="dialog-actions">
         <button type="button" id="config-cancel" value="cancel">Cancel</button>
         <button type="submit" id="config-save" value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="style-dialog" class="config-dialog style-dialog" aria-labelledby="style-dialog-title">
+    <form id="style-form" method="dialog" novalidate>
+      <h2 id="style-dialog-title">Edit style</h2>
+
+      <div id="style-preview" class="style-preview" aria-label="Preview">
+        <span id="style-preview-clock" class="style-preview-clock">05:00</span>
+      </div>
+
+      <div class="field">
+        <label for="style-name">Name</label>
+        <input id="style-name" type="text" maxlength="40" required aria-describedby="style-name-error">
+        <p id="style-name-error" class="error" role="alert" hidden></p>
+      </div>
+
+      <div class="field" id="style-start-field">
+        <label for="style-start">Starts at (minutes from zero)</label>
+        <div class="inline">
+          <input id="style-start" type="number" step="any" inputmode="decimal" aria-describedby="style-start-hint style-start-error">
+          <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the timer duration</label>
+        </div>
+        <p id="style-start-hint" class="hint"></p>
+        <p id="style-start-error" class="error" role="alert" hidden></p>
+      </div>
+      <p id="style-fallback-hint" class="hint field" hidden>Inactive applies whenever no other style does, so it has no start time.</p>
+
+      <div class="field-grid">
+        <div class="field">
+          <label for="style-background">Background</label>
+          <input id="style-background" type="color">
+        </div>
+        <div class="field">
+          <label for="style-color">Text color</label>
+          <input id="style-color" type="color">
+        </div>
+        <div class="field">
+          <label for="style-font">Font</label>
+          <select id="style-font"></select>
+        </div>
+        <div class="field">
+          <label for="style-weight">Weight</label>
+          <select id="style-weight"></select>
+        </div>
+        <div class="field">
+          <label for="style-size">Size <output id="style-size-value" for="style-size"></output></label>
+          <input id="style-size" type="range" min="40" max="100" step="5">
+        </div>
+        <div class="field checkboxes">
+          <label class="checkbox"><input id="style-shadow" type="checkbox"> Text shadow</label>
+          <label class="checkbox"><input id="style-enabled" type="checkbox"> Enabled</label>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <span id="style-delete-wrap" class="delete-wrap">
+          <button type="button" id="style-delete" class="danger">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/>
+            </svg>
+            Delete
+          </button>
+        </span>
+        <span class="spacer"></span>
+        <button type="button" id="style-cancel">Cancel</button>
+        <button type="submit" id="style-save" class="primary">Done</button>
       </div>
     </form>
   </dialog>
