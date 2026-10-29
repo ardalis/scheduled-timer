@@ -20,6 +20,7 @@ import {
   saveConfig,
 } from "./config.js";
 import { resolveStyle } from "./styles-core.js";
+import { effectState, fadeStyle } from "./effects-core.js";
 import { applyStyleVars, setupStyleEditor } from "./style-editor.js";
 import { setupThemePicker } from "./theme-picker.js";
 
@@ -195,8 +196,26 @@ function styleRemaining(now, remaining) {
 
 let appliedStyleKey = null;
 
+/** Effects only play while time is moving: waiting for the start, or running. */
+function currentEffects(resolved, distance) {
+  const { style, from, to } = resolved;
+  if (!style || (state.mode !== "running" && state.mode !== "waiting")) return { strobe: false, fade: null };
+  // Counting down, so the style began at `from` and ends at `to`.
+  return effectState(style.effects, from - distance, from - to);
+}
+
 function renderStyle(now, remaining) {
-  const { style } = resolveStyle(state.styles, styleRemaining(now, remaining), state.durationMs / 60000);
+  const durationMinutes = state.durationMs / 60000;
+  const distance = styleRemaining(now, remaining);
+  const resolved = resolveStyle(state.styles, distance, durationMinutes);
+  const effects = currentEffects(resolved, distance);
+  els.body.classList.toggle("effect-strobe", effects.strobe);
+
+  let { style } = resolved;
+  if (style && effects.fade !== null) {
+    // The style that takes over at the end of this one.
+    style = fadeStyle(style, resolveStyle(state.styles, resolved.to, durationMinutes).style, effects.fade);
+  }
   const key = style ? JSON.stringify(style) : "";
   if (key === appliedStyleKey) return;
   appliedStyleKey = key;

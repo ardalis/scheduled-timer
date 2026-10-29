@@ -15,6 +15,8 @@
 // arithmetic expression of the presentation duration such as
 // "$duration / 10" (see parseStartExpression).
 
+import { defaultEffects, normalizeEffects } from "./effects-core.js";
+
 const MINUTE = 60 * 1000;
 
 export const FONTS = {
@@ -37,6 +39,10 @@ export const BUILT_IN_IDS = ["inactive", "starting-soon", "active", "overtime"];
 
 /** The predefined styles, in their default order. */
 export function defaultStyles() {
+  return builtInStyles().map((style) => ({ ...style, effects: defaultEffects(style.id) }));
+}
+
+function builtInStyles() {
   return [
     {
       id: "inactive",
@@ -107,6 +113,7 @@ export function newCustomStyle(id, minutes = 1) {
     weight: 900,
     sizePercent: 100,
     shadow: false,
+    effects: [],
   };
 }
 
@@ -270,6 +277,8 @@ export function normalizeStyle(raw, base) {
   const size = Number(raw.sizePercent);
   if (Number.isFinite(size)) style.sizePercent = Math.min(MAX_SIZE_PERCENT, Math.max(MIN_SIZE_PERCENT, Math.round(size)));
   if (typeof raw.shadow === "boolean") style.shadow = raw.shadow;
+  // The fallback style has no start, so nothing to time effects from.
+  style.effects = style.start === null ? [] : normalizeEffects(raw.effects, base.effects);
   return style;
 }
 
