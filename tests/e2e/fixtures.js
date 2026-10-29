@@ -43,6 +43,7 @@ export class TimerPage {
     this.page = page;
     this.display = page.locator("#display");
     this.status = page.locator("#status");
+    this.summary = page.locator("#summary");
     this.startTime = page.locator("#start-time");
     this.scheduleButton = page.getByRole("button", { name: "Schedule", exact: true });
     this.cancelSchedule = page.getByRole("button", { name: "Cancel schedule" });
