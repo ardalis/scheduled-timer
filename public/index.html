@@ -25,6 +25,9 @@
       <p class="summary-countdown"></p>
     </div>
     <div id="display" class="display" role="timer" aria-live="off">05:00</div>
+    <p id="sound-blocked" class="sound-blocked" role="status" hidden>
+      The browser blocked a sound. Click anywhere on the page so sounds can play.
+    </p>
   </main>
 
   <section id="controls" class="controls" aria-label="Timer controls">
@@ -61,6 +64,22 @@
         <p id="config-keyboard-hint" class="hint">Off by default, so a presentation remote sending keys to this window
           can't change the timer.</p>
       </div>
+
+      <section class="field" aria-labelledby="sounds-heading">
+        <div class="section-header">
+          <h3 id="sounds-heading">Sounds</h3>
+        </div>
+        <label for="config-sound-start">When the presentation starts</label>
+        <div class="inline">
+          <select id="config-sound-start" class="grow"></select>
+          <button type="button" class="sound-preview" data-sound-select="config-sound-start" aria-label="Play the start sound">Play</button>
+        </div>
+        <label for="config-sound-end">When time runs out</label>
+        <div class="inline">
+          <select id="config-sound-end" class="grow"></select>
+          <button type="button" class="sound-preview" data-sound-select="config-sound-end" aria-label="Play the end sound">Play</button>
+        </div>
+      </section>
 
       <section class="field" aria-labelledby="themes-heading">
         <div class="section-header">

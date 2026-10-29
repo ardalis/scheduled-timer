@@ -43,6 +43,7 @@ describe("defaultConfig", () => {
       themes: [],
       themeId: "default",
       keyboardControl: false,
+      sounds: { start: "trolleybus-bell", end: "alert-asterisk" },
     });
   });
 

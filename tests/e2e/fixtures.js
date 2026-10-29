@@ -82,6 +82,9 @@ export class TimerPage {
     this.startPause = page.locator("#start-pause");
     this.reset = page.locator("#reset");
     this.configKeyboard = page.getByLabel("Space starts and pauses the timer");
+    this.soundStart = page.getByLabel("When the presentation starts");
+    this.soundEnd = page.getByLabel("When time runs out");
+    this.soundBlocked = page.locator("#sound-blocked");
     this.fullscreen = page.locator("#fullscreen");
     this.controls = page.locator("#controls");
   }

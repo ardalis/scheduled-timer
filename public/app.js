@@ -22,6 +22,7 @@ import {
 } from "./config.js";
 import { resolveStyle } from "./styles-core.js";
 import { effectState, fadeStyle } from "./effects-core.js";
+import { NO_SOUND, SOUNDS, isTimely, soundFile } from "./sounds-core.js";
 import { applyStyleVars, setupStyleEditor } from "./style-editor.js";
 import { setupThemePicker } from "./theme-picker.js";
 
@@ -52,6 +53,9 @@ const els = {
   configDurationError: $("config-duration-error"),
   configDurationPending: $("config-duration-pending"),
   configKeyboard: $("config-keyboard"),
+  configSoundStart: $("config-sound-start"),
+  configSoundEnd: $("config-sound-end"),
+  soundBlocked: $("sound-blocked"),
   configStorageError: $("config-storage-error"),
   configCancel: $("config-cancel"),
 };
@@ -94,6 +98,9 @@ const state = {
   mode: "idle",
   styles: [],
   keyboardControl: false,
+  sounds: { start: NO_SOUND, end: NO_SOUND },
+  // Remaining time at the last tick while running, to notice crossing zero.
+  lastRemaining: null,
   durationMs: DEFAULT_MINUTES * 60 * 1000,
   scheduledStart: null, // epoch ms
   endTime: null, // epoch ms
@@ -130,8 +137,39 @@ function clearSchedule() {
 
 function start(endTime = Date.now() + state.remaining) {
   state.endTime = endTime;
+  state.lastRemaining = null;
   setMode("running");
 }
+
+// ---- Sounds ----------------------------------------------------------------
+
+const audio = new Map(); // file -> HTMLAudioElement, loaded ahead of time
+
+function audioFor(id) {
+  const file = soundFile(id);
+  if (!file) return null;
+  if (!audio.has(file)) {
+    const element = new Audio(file);
+    element.preload = "auto";
+    audio.set(file, element);
+  }
+  return audio.get(file);
+}
+
+function playSound(id) {
+  const element = audioFor(id);
+  if (!element) return;
+  element.currentTime = 0;
+  // Browsers block audio until someone has interacted with the page, e.g. a
+  // reload left to start on its own.
+  element.play()?.catch?.((error) => {
+    if (error?.name === "NotAllowedError") els.soundBlocked.hidden = false;
+  });
+}
+
+document.addEventListener("pointerdown", () => {
+  els.soundBlocked.hidden = true;
+}, { passive: true });
 
 function pause() {
   clearSchedule();
@@ -275,11 +313,18 @@ function tick() {
       stop();
     } else {
       // The cookie is kept (it expires after the timer stops) so a reload resumes.
+      const startedAgo = now - state.scheduledStart;
       state.scheduledStart = null;
       start(endTime);
+      if (isTimely(startedAgo)) playSound(state.sounds.start);
     }
   } else if (state.mode === "running" && isStopped(state.endTime - now)) {
     stop();
+  }
+  if (state.mode === "running") {
+    const remaining = state.endTime - now;
+    if (state.lastRemaining > 0 && remaining <= 0 && isTimely(-remaining)) playSound(state.sounds.end);
+    state.lastRemaining = remaining;
   }
   render();
 }
@@ -299,9 +344,31 @@ els.cancelSchedule.addEventListener("click", reset);
 
 // ---- Configuration -------------------------------------------------------
 
+function setSounds(sounds) {
+  state.sounds = sounds;
+  // Load the chosen sounds now, so they play on time.
+  audioFor(sounds.start);
+  audioFor(sounds.end);
+}
+
+for (const select of [els.configSoundStart, els.configSoundEnd]) {
+  select.add(new Option("None", NO_SOUND));
+  for (const [id, { label }] of Object.entries(SOUNDS)) select.add(new Option(label, id));
+}
+
+for (const button of document.querySelectorAll(".sound-preview")) {
+  const select = $(button.dataset.soundSelect);
+  const update = () => {
+    button.disabled = select.value === NO_SOUND;
+  };
+  select.addEventListener("change", update);
+  button.addEventListener("click", () => playSound(select.value));
+}
+
 function applyConfig(config) {
   state.styles = config.styles;
   state.keyboardControl = config.keyboardControl;
+  setSounds(config.sounds);
   setDurationMinutes(config.durationMinutes);
   // Re-save the cookie so its lifetime covers the new duration.
   if (state.mode === "waiting") schedule(state.scheduledStart);
@@ -340,6 +407,10 @@ function openConfig() {
   draft = loadConfig(storage);
   els.configDuration.value = formatDurationMinutes(draft.durationMinutes);
   els.configKeyboard.checked = draft.keyboardControl;
+  els.configSoundStart.value = draft.sounds.start;
+  els.configSoundEnd.value = draft.sounds.end;
+  // Enables or disables each Play button to match.
+  for (const select of [els.configSoundStart, els.configSoundEnd]) select.dispatchEvent(new Event("change"));
   styleEditor.renderList();
   themePicker.reset();
   showDurationError("");
@@ -360,7 +431,12 @@ els.configForm.addEventListener("submit", (event) => {
     els.configDuration.focus();
     return;
   }
-  const config = { ...draft, durationMinutes, keyboardControl: els.configKeyboard.checked };
+  const config = {
+    ...draft,
+    durationMinutes,
+    keyboardControl: els.configKeyboard.checked,
+    sounds: { start: els.configSoundStart.value, end: els.configSoundEnd.value },
+  };
   const saved = saveConfig(storage, config);
   applyConfig(config);
   if (saved) {
@@ -379,9 +455,12 @@ els.startPause.addEventListener("click", () => {
   if (state.mode === "running") {
     pause();
   } else {
+    // Resuming a paused timer isn't a new start, so no sound.
+    const beginning = state.mode !== "paused";
     if (state.mode === "waiting") clearSchedule();
     if (state.mode === "stopped") state.remaining = state.durationMs;
     start();
+    if (beginning) playSound(state.sounds.start);
   }
 });
 
@@ -475,6 +554,7 @@ function init() {
   const config = loadInitialConfig();
   state.styles = config.styles;
   state.keyboardControl = config.keyboardControl;
+  setSounds(config.sounds);
   setDurationMinutes(config.durationMinutes);
 
   const restored = restoreSchedule(getCookie(SCHEDULE_COOKIE), state.durationMs, Date.now());
