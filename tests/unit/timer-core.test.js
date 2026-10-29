@@ -5,6 +5,7 @@ import {
   DEFAULT_MINUTES,
   MAX_SCHEDULE_AHEAD_MS,
   defaultStartTimeValue,
+  describeDay,
   formatClock,
   formatTimespan,
   nextOccurrence,
@@ -12,6 +13,7 @@ import {
   parseTimeInput,
   restoreSchedule,
   scheduleCookieMaxAge,
+  scheduleSummary,
   isStopped,
   MAX_OVERTIME_MS,
   toTimeInputValue,
@@ -332,5 +334,41 @@ describe("isStopped", () => {
     assert.equal(MAX_OVERTIME_MS, HOUR);
     assert.equal(isStopped(-HOUR), true);
     assert.equal(isStopped(-2 * HOUR), true);
+  });
+});
+
+describe("describeDay", () => {
+  const now = new Date(2026, 9, 28, 22, 0);
+  it("says today, tomorrow, or the weekday by local date", () => {
+    assert.equal(describeDay(new Date(2026, 9, 28, 23, 59), now), "TODAY");
+    assert.equal(describeDay(new Date(2026, 9, 29, 0, 1), now), "TOMORROW");
+    assert.equal(describeDay(new Date(2026, 9, 30, 9, 0), now), "FRIDAY");
+  });
+});
+
+describe("scheduleSummary", () => {
+  const now = new Date(2026, 9, 28, 10, 0).getTime();
+  const formatTime = (date) => `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+  it("summarizes the duration, start, and time until it", () => {
+    const start = new Date(2026, 9, 28, 10, 30).getTime();
+    assert.deepEqual(scheduleSummary(20, start, now + SECOND, formatTime), [
+      "Your 20 minute presentation",
+      "is scheduled for",
+      "10:30 TODAY",
+      "29:59 minutes to go!",
+    ]);
+  });
+
+  it("handles fractional durations, tomorrow, and an hour or more to go", () => {
+    const start = new Date(2026, 9, 29, 9, 0).getTime();
+    const [duration, , when, countdown] = scheduleSummary(7.5, start, now, formatTime);
+    assert.equal(duration, "Your 7.5 minute presentation");
+    assert.equal(when, "9:00 TOMORROW");
+    assert.equal(countdown, "23:00:00 hours to go!");
+  });
+
+  it("never counts below zero", () => {
+    assert.equal(scheduleSummary(5, now, now + SECOND, formatTime)[3], "00:00 minutes to go!");
   });
 });

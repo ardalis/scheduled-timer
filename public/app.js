@@ -10,6 +10,7 @@ import {
   parseTimeInput,
   restoreSchedule,
   scheduleCookieMaxAge,
+  scheduleSummary,
   toTimeInputValue,
 } from "./timer-core.js";
 import {
@@ -36,6 +37,7 @@ const els = {
   body: document.body,
   controls: $("controls"),
   status: $("status"),
+  summary: $("summary"),
   display: $("display"),
   form: $("schedule-form"),
   startTime: $("start-time"),
@@ -162,7 +164,8 @@ function render() {
   }
   document.title = state.mode === "running" || state.mode === "paused" ? `${clock} · Scheduled Timer` : "Scheduled Timer";
 
-  renderStyle(now, remaining);
+  const baseStyle = renderStyle(now, remaining);
+  renderSummary(now, baseStyle);
   // Over time once the clock reads 00:00 or less.
   els.body.classList.toggle("overtime", state.mode !== "idle" && state.mode !== "waiting" && remaining <= 0);
 
@@ -222,12 +225,32 @@ function renderStyle(now, remaining) {
     style = fadeStyle(style, resolveStyle(state.styles, resolved.to, durationMinutes).style, effects.fade);
   }
   const key = style ? JSON.stringify(style) : "";
-  if (key === appliedStyleKey) return;
-  appliedStyleKey = key;
-  els.body.classList.toggle("styled", !!style);
-  els.body.dataset.style = style?.id ?? "";
-  if (style) applyStyleVars(els.body, style);
-  fitDisplay();
+  if (key !== appliedStyleKey) {
+    appliedStyleKey = key;
+    els.body.classList.toggle("styled", !!style);
+    els.body.dataset.style = style?.id ?? "";
+    if (style) applyStyleVars(els.body, style);
+    fitDisplay();
+  }
+  return resolved.style;
+}
+
+/**
+ * While a start is scheduled and the Inactive look applies (no style is
+ * timed yet), shows a card summarizing the presentation's timing.
+ */
+function renderSummary(now, style) {
+  const show = state.mode === "waiting" && (!style || style.start === null);
+  if (els.summary.hidden === show) {
+    els.summary.hidden = !show;
+    els.body.classList.toggle("show-summary", show);
+    fitDisplay();
+  }
+  if (!show) return;
+  const lines = scheduleSummary(state.durationMs / 60000, state.scheduledStart, now, formatLocalTime);
+  [...els.summary.children].forEach((line, i) => {
+    if (line.textContent !== lines[i]) line.textContent = lines[i];
+  });
 }
 
 /** Shrinks the readout if the current font is wider than the window allows. */
