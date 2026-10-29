@@ -1,0 +1,231 @@
+// The style list in the configuration dialog and the edit style dialog.
+// Edits go to a draft owned by the configuration dialog, which saves them.
+
+import { formatClock } from "./timer-core.js";
+import {
+  FONTS,
+  WEIGHTS,
+  describeStart,
+  newCustomStyle,
+  parseStartMinutes,
+  parseStyleName,
+  sortStylesForDisplay,
+  startMinutes,
+  styleToCss,
+} from "./styles-core.js";
+
+const BUILT_IN_DELETE_TOOLTIP = "Built-in styles cannot be deleted.";
+
+export function applyStyleVars(element, style) {
+  for (const [name, value] of Object.entries(styleToCss(style))) element.style.setProperty(name, value);
+}
+
+/**
+ * @param {object} options
+ * @param {() => object[]} options.getStyles   current draft styles
+ * @param {(styles: object[]) => void} options.setStyles
+ * @param {() => number} options.getDurationMinutes  duration to show relative starts against
+ */
+export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    list: $("style-list"),
+    add: $("add-style"),
+    dialog: $("style-dialog"),
+    form: $("style-form"),
+    title: $("style-dialog-title"),
+    preview: $("style-preview"),
+    previewClock: $("style-preview-clock"),
+    name: $("style-name"),
+    nameError: $("style-name-error"),
+    startField: $("style-start-field"),
+    start: $("style-start"),
+    plusDuration: $("style-plus-duration"),
+    startHint: $("style-start-hint"),
+    startError: $("style-start-error"),
+    fallbackHint: $("style-fallback-hint"),
+    background: $("style-background"),
+    color: $("style-color"),
+    font: $("style-font"),
+    weight: $("style-weight"),
+    size: $("style-size"),
+    sizeValue: $("style-size-value"),
+    shadow: $("style-shadow"),
+    enabled: $("style-enabled"),
+    deleteWrap: $("style-delete-wrap"),
+    deleteButton: $("style-delete"),
+    cancel: $("style-cancel"),
+  };
+
+  for (const [value, { label }] of Object.entries(FONTS)) els.font.add(new Option(label, value));
+  for (const [value, label] of Object.entries(WEIGHTS)) els.weight.add(new Option(label, value));
+
+  let editing = null; // working copy of the style in the dialog
+  let isNew = false;
+
+  // ---- List ----------------------------------------------------------------
+
+  function renderList() {
+    const duration = getDurationMinutes();
+    els.list.replaceChildren(
+      ...sortStylesForDisplay(getStyles(), duration).map((style) => {
+        const item = document.createElement("li");
+        item.className = "style-item";
+        item.dataset.styleId = style.id;
+        item.classList.toggle("is-disabled", !style.enabled);
+
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "style-row";
+        row.setAttribute("aria-label", `Edit ${style.name}`);
+        row.addEventListener("click", () => openEditor(style.id));
+
+        const swatch = document.createElement("span");
+        swatch.className = "style-swatch";
+        swatch.textContent = "12";
+        swatch.setAttribute("aria-hidden", "true");
+        applyStyleVars(swatch, style);
+
+        const name = document.createElement("span");
+        name.className = "style-name";
+        name.textContent = style.name;
+
+        const start = document.createElement("span");
+        start.className = "style-start";
+        start.textContent = describeStart(style, duration);
+
+        row.append(swatch, name, start);
+
+        const toggleLabel = document.createElement("label");
+        toggleLabel.className = "checkbox";
+        const toggle = document.createElement("input");
+        toggle.type = "checkbox";
+        toggle.checked = style.enabled;
+        toggle.setAttribute("aria-label", `Enable ${style.name}`);
+        toggle.addEventListener("change", () => {
+          setStyles(getStyles().map((s) => (s.id === style.id ? { ...s, enabled: toggle.checked } : s)));
+          renderList();
+        });
+        toggleLabel.append(toggle, " Enabled");
+
+        item.append(row, toggleLabel);
+        return item;
+      })
+    );
+  }
+
+  // ---- Editor --------------------------------------------------------------
+
+  function showError(input, errorEl, message) {
+    errorEl.textContent = message;
+    errorEl.hidden = !message;
+    input.setAttribute("aria-invalid", message ? "true" : "false");
+  }
+
+  /** Reads the form into the working copy. Returns error messages by field. */
+  function readForm() {
+    const errors = {};
+    const name = parseStyleName(els.name.value);
+    if (name === null) errors.name = "Enter a name (up to 40 characters).";
+    else editing.name = name;
+
+    if (editing.start !== null) {
+      const minutes = parseStartMinutes(els.start.value);
+      const plusDuration = els.plusDuration.checked;
+      if (minutes === null) {
+        errors.start = "Enter a number of minutes between -1440 and 1440.";
+      } else if (!plusDuration && minutes === 0) {
+        errors.start = "Start before zero (positive) or over time (negative), not at 0.";
+      } else {
+        editing.start = { minutes, plusDuration };
+      }
+    }
+
+    editing.background = els.background.value;
+    editing.color = els.color.value;
+    editing.font = els.font.value;
+    editing.weight = Number(els.weight.value);
+    editing.sizePercent = Number(els.size.value);
+    editing.shadow = els.shadow.checked;
+    editing.enabled = els.enabled.checked;
+    return errors;
+  }
+
+  function updatePreview() {
+    readForm();
+    applyStyleVars(els.preview, editing);
+    const duration = getDurationMinutes();
+    const at = startMinutes(editing, duration);
+    els.previewClock.textContent = formatClock((at ?? duration) * 60 * 1000);
+    els.sizeValue.textContent = `${editing.sizePercent}%`;
+    els.startHint.textContent =
+      editing.start === null ? "" : `Starts at ${describeStart(editing, duration)} with the current duration.`;
+  }
+
+  function openEditor(id) {
+    const existing = getStyles().find((style) => style.id === id);
+    isNew = !existing;
+    editing = structuredClone(existing ?? newCustomStyle(`custom-${crypto.randomUUID()}`));
+
+    els.title.textContent = isNew ? "Add style" : "Edit style";
+    els.name.value = editing.name;
+    const hasStart = editing.start !== null;
+    els.startField.hidden = !hasStart;
+    els.fallbackHint.hidden = hasStart;
+    if (hasStart) {
+      els.start.value = String(editing.start.minutes);
+      els.plusDuration.checked = editing.start.plusDuration;
+    }
+    els.background.value = editing.background;
+    els.color.value = editing.color;
+    els.font.value = editing.font;
+    els.weight.value = String(editing.weight);
+    els.size.value = String(editing.sizePercent);
+    els.shadow.checked = editing.shadow;
+    els.enabled.checked = editing.enabled;
+
+    els.deleteButton.disabled = editing.builtIn || isNew;
+    els.deleteWrap.title = editing.builtIn ? BUILT_IN_DELETE_TOOLTIP : "";
+    els.deleteButton.setAttribute("aria-description", editing.builtIn ? BUILT_IN_DELETE_TOOLTIP : "");
+    showError(els.name, els.nameError, "");
+    showError(els.start, els.startError, "");
+
+    updatePreview();
+    els.dialog.showModal();
+    els.name.focus();
+  }
+
+  els.form.addEventListener("input", (event) => {
+    if (event.target === els.name) showError(els.name, els.nameError, "");
+    if (event.target === els.start || event.target === els.plusDuration) showError(els.start, els.startError, "");
+    updatePreview();
+  });
+
+  els.form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const errors = readForm();
+    showError(els.name, els.nameError, errors.name ?? "");
+    showError(els.start, els.startError, errors.start ?? "");
+    if (errors.name || errors.start) {
+      (errors.name ? els.name : els.start).focus();
+      return;
+    }
+    const styles = getStyles();
+    setStyles(isNew ? [...styles, editing] : styles.map((style) => (style.id === editing.id ? editing : style)));
+    els.dialog.close();
+    renderList();
+  });
+
+  els.cancel.addEventListener("click", () => els.dialog.close());
+
+  els.deleteButton.addEventListener("click", () => {
+    if (editing.builtIn) return;
+    setStyles(getStyles().filter((style) => style.id !== editing.id));
+    els.dialog.close();
+    renderList();
+  });
+
+  els.add.addEventListener("click", () => openEditor(null));
+
+  return { renderList, isOpen: () => els.dialog.open };
+}

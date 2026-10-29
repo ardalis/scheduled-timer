@@ -1,9 +1,10 @@
 // Pure timer logic with no DOM access, shared by app.js and the unit tests.
 
 export const DEFAULT_MINUTES = 5;
-export const MIN_MINUTES = 1;
-export const MAX_MINUTES = 999;
 export const DAY_MS = 24 * 60 * 60 * 1000;
+// After reaching zero the timer counts into negative time, and stops once
+// it has been over time this long.
+export const MAX_OVERTIME_MS = 60 * 60 * 1000;
 // The next occurrence of a time is at most 24 hours away, except across a
 // daylight saving "fall back" day, which has an extra hour.
 export const MAX_SCHEDULE_AHEAD_MS = DAY_MS + 60 * 60 * 1000;
@@ -29,12 +30,19 @@ export function nextOccurrence(hours, minutes, now = new Date()) {
   return target;
 }
 
-/** mm:ss, where minutes may exceed 59 for long timers. */
+/**
+ * mm:ss under an hour, hh:mm:ss from an hour up, with a leading "-" once the
+ * timer is over time. Every value, including 00:00, shows for a full second.
+ */
 export function formatClock(ms) {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(totalSeconds / 60);
+  // Rounding up keeps 00:00 on screen for the second after zero, then -00:01.
+  const signedSeconds = Math.ceil(ms / 1000);
+  const totalSeconds = Math.abs(signedSeconds);
+  const sign = signedSeconds < 0 ? "-" : "";
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
-  return `${pad2(m)}:${pad2(s)}`;
+  return h > 0 ? `${sign}${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${sign}${pad2(m)}:${pad2(s)}`;
 }
 
 /** Natural-language span, e.g. "2 hours and 5 minutes" or "45 seconds". */
@@ -52,13 +60,6 @@ export function formatTimespan(ms) {
   if (!hours && seconds) parts.push(unit(seconds, "second"));
   if (!parts.length) return "less than a second";
   return parts.length === 1 ? parts[0] : `${parts[0]} and ${parts[1]}`;
-}
-
-/** Whole minutes within [MIN_MINUTES, MAX_MINUTES]; invalid input falls back to the default. */
-export function clampMinutes(value) {
-  const n = Number(value);
-  if (!n || !Number.isFinite(n)) return DEFAULT_MINUTES;
-  return Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(n)));
 }
 
 /** Parses an `<input type="time">` value ("HH:MM" or "HH:MM:SS"). Returns null if invalid. */
@@ -97,17 +98,18 @@ export function parseCookie(cookieString, name) {
 
 /**
  * Cookie lifetime in seconds for a scheduled start: until a minute past the
- * end of the timer, so reloading mid-talk can resume.
+ * point the timer stops (an hour over time), so reloading can resume.
  */
 export function scheduleCookieMaxAge(startMs, durationMs, now) {
-  const seconds = Math.ceil((startMs - now + durationMs) / 1000) + 60;
+  const seconds = Math.ceil((startMs - now + durationMs + MAX_OVERTIME_MS) / 1000) + 60;
   return Math.max(60, seconds);
 }
 
 /**
  * Decides what a saved scheduled start means on page load.
  *  - { mode: "waiting", start }   start is in the future (no further than a schedule can be)
- *  - { mode: "running", endTime } start has passed but the timer would still be running
+ *  - { mode: "running", endTime } start has passed and the timer would still be running
+ *                                 (possibly over time: endTime may be in the past)
  *  - { mode: "none", stale }      nothing usable; `stale` means the cookie should be deleted
  */
 export function restoreSchedule(savedValue, durationMs, now) {
@@ -120,5 +122,10 @@ export function restoreSchedule(savedValue, durationMs, now) {
       : { mode: "none", stale: true };
   }
   const endTime = start + durationMs;
-  return endTime > now ? { mode: "running", endTime } : { mode: "none", stale: true };
+  return isStopped(endTime - now) ? { mode: "none", stale: true } : { mode: "running", endTime };
+}
+
+/** Whether a timer with this much time remaining (negative when over time) has stopped. */
+export function isStopped(remainingMs) {
+  return remainingMs <= -MAX_OVERTIME_MS;
 }

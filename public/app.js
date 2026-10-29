@@ -1,9 +1,10 @@
 import {
   DEFAULT_MINUTES,
-  clampMinutes,
   defaultStartTimeValue,
   formatClock,
   formatTimespan,
+  isStopped,
+  MAX_OVERTIME_MS,
   nextOccurrence,
   parseCookie,
   parseTimeInput,
@@ -11,9 +12,19 @@ import {
   scheduleCookieMaxAge,
   toTimeInputValue,
 } from "./timer-core.js";
+import {
+  formatDurationMinutes,
+  hasStoredConfig,
+  loadConfig,
+  parseDurationMinutes,
+  saveConfig,
+} from "./config.js";
+import { resolveStyle } from "./styles-core.js";
+import { applyStyleVars, setupStyleEditor } from "./style-editor.js";
 
 const SCHEDULE_COOKIE = "scheduledStart";
-const MINUTES_COOKIE = "timerMinutes";
+// Older versions stored the duration in this cookie; it's migrated to the config.
+const LEGACY_MINUTES_COOKIE = "timerMinutes";
 const CONTROLS_IDLE_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -24,11 +35,26 @@ const els = {
   form: $("schedule-form"),
   startTime: $("start-time"),
   cancelSchedule: $("cancel-schedule"),
-  duration: $("duration"),
   startPause: $("start-pause"),
   reset: $("reset"),
   fullscreen: $("fullscreen"),
+  configButton: $("config-button"),
+  configDialog: $("config-dialog"),
+  configForm: $("config-form"),
+  configDuration: $("config-duration"),
+  configDurationError: $("config-duration-error"),
+  configDurationPending: $("config-duration-pending"),
+  configStorageError: $("config-storage-error"),
+  configCancel: $("config-cancel"),
 };
+
+const storage = (() => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null; // e.g. storage disabled by browser settings
+  }
+})();
 
 // ---- Cookies -------------------------------------------------------------
 
@@ -52,12 +78,13 @@ function formatLocalTime(date) {
 // ---- State ---------------------------------------------------------------
 // idle:     nothing scheduled, timer at full duration
 // waiting:  scheduled start in the future
-// running:  counting down toward endTime
-// paused:   stopped with `remaining` left
-// finished: reached 00:00
+// running:  counting down toward endTime, then into negative (over time)
+// paused:   stopped with `remaining` left (negative if paused over time)
+// stopped:  an hour over time; the timer no longer counts
 
 const state = {
   mode: "idle",
+  styles: [],
   durationMs: DEFAULT_MINUTES * 60 * 1000,
   scheduledStart: null, // epoch ms
   endTime: null, // epoch ms
@@ -71,13 +98,10 @@ function setMode(mode) {
 }
 
 function setDurationMinutes(minutes) {
-  const value = clampMinutes(minutes);
-  els.duration.value = value;
-  state.durationMs = value * 60 * 1000;
-  setCookie(MINUTES_COOKIE, String(value), 365 * 24 * 60 * 60);
-  if (state.mode === "idle" || state.mode === "waiting" || state.mode === "finished") {
+  state.durationMs = Math.round(minutes * 60 * 1000);
+  if (state.mode === "idle" || state.mode === "waiting" || state.mode === "stopped") {
     state.remaining = state.durationMs;
-    if (state.mode === "finished") setMode("idle");
+    if (state.mode === "stopped") setMode("idle");
   }
 }
 
@@ -102,7 +126,7 @@ function start(endTime = Date.now() + state.remaining) {
 
 function pause() {
   clearSchedule();
-  state.remaining = Math.max(0, state.endTime - Date.now());
+  state.remaining = Math.max(-MAX_OVERTIME_MS, state.endTime - Date.now());
   state.endTime = null;
   setMode("paused");
 }
@@ -117,38 +141,80 @@ function reset() {
 // ---- Rendering -----------------------------------------------------------
 
 function currentRemaining(now) {
-  return state.mode === "running" ? Math.max(0, state.endTime - now) : state.remaining;
+  return state.mode === "running" ? Math.max(-MAX_OVERTIME_MS, state.endTime - now) : state.remaining;
 }
 
 function render() {
   const now = Date.now();
   const remaining = currentRemaining(now);
   const clock = formatClock(remaining);
-  if (els.display.textContent !== clock) els.display.textContent = clock;
-  document.title = state.mode === "running" ? `${clock} · Scheduled Timer` : "Scheduled Timer";
+  if (els.display.textContent !== clock) {
+    els.display.textContent = clock;
+    els.display.style.setProperty("--chars", clock.length);
+    fitDisplay();
+  }
+  document.title = state.mode === "running" || state.mode === "paused" ? `${clock} · Scheduled Timer` : "Scheduled Timer";
 
-  els.body.classList.toggle(
-    "final-minute",
-    state.mode === "running" && remaining <= 60 * 1000
-  );
+  renderStyle(now, remaining);
+  // Over time once the clock reads 00:00 or less.
+  els.body.classList.toggle("overtime", state.mode !== "idle" && state.mode !== "waiting" && remaining <= 0);
 
   let status = "";
   if (state.mode === "waiting") {
     status = `Timer will begin in ${formatTimespan(state.scheduledStart - now)}.`;
   } else if (state.mode === "paused") {
     status = "Paused";
-  } else if (state.mode === "finished") {
-    status = "Time's up!";
+  } else if (state.mode === "stopped") {
+    status = "Stopped after an hour over time.";
   }
   if (els.status.textContent !== status) els.status.textContent = status;
 
   els.cancelSchedule.hidden = state.mode !== "waiting";
   els.startPause.textContent =
     state.mode === "running" ? "Pause" : state.mode === "paused" ? "Resume" : "Start now";
-  els.duration.disabled = state.mode === "running" || state.mode === "paused";
   els.startTime.title =
     state.mode === "waiting" ? `Scheduled for ${formatLocalTime(new Date(state.scheduledStart))}` : "";
 }
+
+function stop() {
+  clearSchedule();
+  state.remaining = -MAX_OVERTIME_MS;
+  state.endTime = null;
+  setMode("stopped");
+}
+
+// ---- Styles ----------------------------------------------------------------
+
+/** Time until zero for choosing a style; includes the wait before a scheduled start. */
+function styleRemaining(now, remaining) {
+  if (state.mode === "idle") return Infinity;
+  if (state.mode === "waiting") return state.durationMs + (state.scheduledStart - now);
+  return remaining;
+}
+
+let appliedStyleKey = null;
+
+function renderStyle(now, remaining) {
+  const { style } = resolveStyle(state.styles, styleRemaining(now, remaining), state.durationMs / 60000);
+  const key = style ? JSON.stringify(style) : "";
+  if (key === appliedStyleKey) return;
+  appliedStyleKey = key;
+  els.body.classList.toggle("styled", !!style);
+  els.body.dataset.style = style?.id ?? "";
+  if (style) applyStyleVars(els.body, style);
+  fitDisplay();
+}
+
+/** Shrinks the readout if the current font is wider than the window allows. */
+function fitDisplay() {
+  els.display.style.setProperty("--fit", "1");
+  const available = window.innerWidth * 0.96;
+  const width = els.display.scrollWidth;
+  if (width > available) els.display.style.setProperty("--fit", String(available / width));
+}
+
+window.addEventListener("resize", fitDisplay);
+document.fonts?.addEventListener?.("loadingdone", fitDisplay);
 
 function tick() {
   const now = Date.now();
@@ -156,21 +222,16 @@ function tick() {
     // Anchor the end to the scheduled start so the timer stays accurate even
     // if the tab was throttled in the background.
     const endTime = state.scheduledStart + state.durationMs;
-    if (endTime > now) {
-      // The cookie is kept (it expires after the timer ends) so a reload resumes.
+    if (isStopped(endTime - now)) {
+      // The whole timer, and the hour after it, passed while the tab was asleep.
+      stop();
+    } else {
+      // The cookie is kept (it expires after the timer stops) so a reload resumes.
       state.scheduledStart = null;
       start(endTime);
-    } else {
-      // The whole timer elapsed while the tab was asleep.
-      clearSchedule();
-      state.remaining = 0;
-      setMode("finished");
     }
-  } else if (state.mode === "running" && now >= state.endTime) {
-    clearSchedule();
-    state.remaining = 0;
-    state.endTime = null;
-    setMode("finished");
+  } else if (state.mode === "running" && isStopped(state.endTime - now)) {
+    stop();
   }
   render();
 }
@@ -186,11 +247,70 @@ els.form.addEventListener("submit", (event) => {
 
 els.cancelSchedule.addEventListener("click", reset);
 
-els.duration.addEventListener("change", () => {
-  setDurationMinutes(els.duration.value);
+// ---- Configuration -------------------------------------------------------
+
+function applyConfig(config) {
+  state.styles = config.styles;
+  setDurationMinutes(config.durationMinutes);
   // Re-save the cookie so its lifetime covers the new duration.
   if (state.mode === "waiting") schedule(state.scheduledStart);
   render();
+}
+
+function showDurationError(message) {
+  els.configDurationError.textContent = message;
+  els.configDurationError.hidden = !message;
+  els.configDuration.setAttribute("aria-invalid", message ? "true" : "false");
+}
+
+// Edits in the dialog go to a draft that Save writes to storage.
+let draft = null;
+
+const styleEditor = setupStyleEditor({
+  getStyles: () => draft.styles,
+  setStyles: (styles) => {
+    draft.styles = styles;
+  },
+  // Show relative starts against the duration being typed, if it's valid.
+  getDurationMinutes: () => parseDurationMinutes(els.configDuration.value) ?? draft.durationMinutes,
+});
+
+function openConfig() {
+  // Always reload from storage, so the dialog shows what is actually saved.
+  draft = loadConfig(storage);
+  els.configDuration.value = formatDurationMinutes(draft.durationMinutes);
+  styleEditor.renderList();
+  showDurationError("");
+  els.configStorageError.hidden = true;
+  els.configDurationPending.hidden = !(state.mode === "running" || state.mode === "paused");
+  els.configDialog.showModal();
+  els.configDuration.select();
+}
+
+els.configButton.addEventListener("click", openConfig);
+els.configCancel.addEventListener("click", () => els.configDialog.close());
+
+els.configForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const durationMinutes = parseDurationMinutes(els.configDuration.value);
+  if (durationMinutes === null) {
+    showDurationError("Enter a number of minutes greater than 0 and at most 1440.");
+    els.configDuration.focus();
+    return;
+  }
+  const config = { ...draft, durationMinutes };
+  const saved = saveConfig(storage, config);
+  applyConfig(config);
+  if (saved) {
+    els.configDialog.close();
+  } else {
+    els.configStorageError.hidden = false;
+  }
+});
+
+els.configDuration.addEventListener("input", () => {
+  showDurationError("");
+  styleEditor.renderList();
 });
 
 els.startPause.addEventListener("click", () => {
@@ -198,7 +318,7 @@ els.startPause.addEventListener("click", () => {
     pause();
   } else {
     if (state.mode === "waiting") clearSchedule();
-    if (state.mode === "finished") state.remaining = state.durationMs;
+    if (state.mode === "stopped") state.remaining = state.durationMs;
     start();
   }
 });
@@ -219,6 +339,7 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (els.configDialog.open) return;
   if (event.target instanceof HTMLInputElement) return;
   // Let focused buttons handle Space/Enter themselves.
   if (event.target instanceof HTMLButtonElement && event.key === " ") return;
@@ -238,7 +359,7 @@ function showControls() {
   idleTimer = setTimeout(() => {
     const focusedInControls = document.getElementById("controls").contains(document.activeElement)
       && document.activeElement instanceof HTMLInputElement;
-    if (state.mode === "running" && !focusedInControls) {
+    if (state.mode === "running" && !focusedInControls && !els.configDialog.open) {
       els.body.classList.add("controls-hidden");
     }
   }, CONTROLS_IDLE_MS);
@@ -249,8 +370,23 @@ function showControls() {
 
 // ---- Init ----------------------------------------------------------------
 
+function loadInitialConfig() {
+  const config = loadConfig(storage);
+  const legacy = getCookie(LEGACY_MINUTES_COOKIE);
+  if (legacy === null) return config;
+  const legacyMinutes = parseDurationMinutes(legacy);
+  if (legacyMinutes !== null && !hasStoredConfig(storage)) {
+    config.durationMinutes = legacyMinutes;
+    saveConfig(storage, config);
+  }
+  deleteCookie(LEGACY_MINUTES_COOKIE);
+  return config;
+}
+
 function init() {
-  setDurationMinutes(getCookie(MINUTES_COOKIE) ?? DEFAULT_MINUTES);
+  const config = loadInitialConfig();
+  state.styles = config.styles;
+  setDurationMinutes(config.durationMinutes);
 
   const restored = restoreSchedule(getCookie(SCHEDULE_COOKIE), state.durationMs, Date.now());
   if (restored.mode === "waiting") {

@@ -5,9 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scheduled Timer</title>
   <meta name="description" content="A speaker tool that starts a countdown timer at a specific time.">
+  <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body data-state="idle">
+  <button type="button" id="config-button" class="config-button" aria-label="Configuration" title="Configuration"
+    aria-haspopup="dialog" aria-controls="config-dialog">
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M19.14 12.94a7.07 7.07 0 0 0 .06-.94 7.07 7.07 0 0 0-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.62l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.4h-3.84a.48.48 0 0 0-.48.4l-.36 2.54a7.3 7.3 0 0 0-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.73 8.86a.48.48 0 0 0 .12.62l2.03 1.58a7.4 7.4 0 0 0 0 1.88l-2.03 1.58a.49.49 0 0 0-.12.62l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.05.24.25.4.48.4h3.84c.24 0 .44-.16.48-.4l.36-2.54a7 7 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.62zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/>
+    </svg>
+  </button>
+
   <main class="stage">
     <p id="status" class="status" aria-live="polite"></p>
     <div id="display" class="display" role="timer" aria-live="off">05:00</div>
@@ -22,13 +30,113 @@
     </form>
 
     <div class="group">
-      <label for="duration">Minutes</label>
-      <input id="duration" type="number" min="1" max="999" step="1" value="5">
       <button type="button" id="start-pause">Start now</button>
       <button type="button" id="reset">Reset</button>
       <button type="button" id="fullscreen" title="Toggle full screen (F)">Full screen</button>
     </div>
   </section>
+
+  <dialog id="config-dialog" class="config-dialog" aria-labelledby="config-title">
+    <form id="config-form" method="dialog" novalidate>
+      <h2 id="config-title">Configuration</h2>
+
+      <div class="field">
+        <label for="config-duration">Timer duration (minutes)</label>
+        <input id="config-duration" name="durationMinutes" type="number" min="0.0167" max="1440" step="any"
+          inputmode="decimal" required aria-describedby="config-duration-hint config-duration-error">
+        <p id="config-duration-hint" class="hint">Any number of minutes, e.g. 20 or 7.5.</p>
+        <p id="config-duration-error" class="error" role="alert" hidden></p>
+        <p id="config-duration-pending" class="hint" hidden>The new duration applies when the current timer is reset.</p>
+      </div>
+
+      <section class="field" aria-labelledby="styles-heading">
+        <div class="section-header">
+          <h3 id="styles-heading">Styles</h3>
+          <button type="button" id="add-style">Add style</button>
+        </div>
+        <p class="hint">Each style starts at a number of minutes from zero: positive before, negative over time.
+          The closest to zero applies.</p>
+        <ul id="style-list" class="style-list" aria-labelledby="styles-heading"></ul>
+      </section>
+
+      <p id="config-storage-error" class="error" role="alert" hidden>
+        Settings couldn't be saved in this browser, so they will be lost on reload.
+      </p>
+
+      <div class="dialog-actions">
+        <button type="button" id="config-cancel" value="cancel">Cancel</button>
+        <button type="submit" id="config-save" value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="style-dialog" class="config-dialog style-dialog" aria-labelledby="style-dialog-title">
+    <form id="style-form" method="dialog" novalidate>
+      <h2 id="style-dialog-title">Edit style</h2>
+
+      <div id="style-preview" class="style-preview" aria-label="Preview">
+        <span id="style-preview-clock" class="style-preview-clock">05:00</span>
+      </div>
+
+      <div class="field">
+        <label for="style-name">Name</label>
+        <input id="style-name" type="text" maxlength="40" required aria-describedby="style-name-error">
+        <p id="style-name-error" class="error" role="alert" hidden></p>
+      </div>
+
+      <div class="field" id="style-start-field">
+        <label for="style-start">Starts at (minutes from zero)</label>
+        <div class="inline">
+          <input id="style-start" type="number" step="any" inputmode="decimal" aria-describedby="style-start-hint style-start-error">
+          <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the timer duration</label>
+        </div>
+        <p id="style-start-hint" class="hint"></p>
+        <p id="style-start-error" class="error" role="alert" hidden></p>
+      </div>
+      <p id="style-fallback-hint" class="hint field" hidden>Inactive applies whenever no other style does, so it has no start time.</p>
+
+      <div class="field-grid">
+        <div class="field">
+          <label for="style-background">Background</label>
+          <input id="style-background" type="color">
+        </div>
+        <div class="field">
+          <label for="style-color">Text color</label>
+          <input id="style-color" type="color">
+        </div>
+        <div class="field">
+          <label for="style-font">Font</label>
+          <select id="style-font"></select>
+        </div>
+        <div class="field">
+          <label for="style-weight">Weight</label>
+          <select id="style-weight"></select>
+        </div>
+        <div class="field">
+          <label for="style-size">Size <output id="style-size-value" for="style-size"></output></label>
+          <input id="style-size" type="range" min="40" max="100" step="5">
+        </div>
+        <div class="field checkboxes">
+          <label class="checkbox"><input id="style-shadow" type="checkbox"> Text shadow</label>
+          <label class="checkbox"><input id="style-enabled" type="checkbox"> Enabled</label>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <span id="style-delete-wrap" class="delete-wrap">
+          <button type="button" id="style-delete" class="danger">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/>
+            </svg>
+            Delete
+          </button>
+        </span>
+        <span class="spacer"></span>
+        <button type="button" id="style-cancel">Cancel</button>
+        <button type="submit" id="style-save" class="primary">Done</button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="app.js"></script>
 </body>

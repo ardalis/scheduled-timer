@@ -46,7 +46,28 @@ export class TimerPage {
     this.startTime = page.locator("#start-time");
     this.scheduleButton = page.getByRole("button", { name: "Schedule", exact: true });
     this.cancelSchedule = page.getByRole("button", { name: "Cancel schedule" });
-    this.duration = page.locator("#duration");
+    this.configButton = page.getByRole("button", { name: "Configuration" });
+    this.configDialog = page.locator("#config-dialog");
+    this.configDuration = page.getByLabel("Timer duration (minutes)");
+    this.configSave = this.configDialog.getByRole("button", { name: "Save" });
+    this.configCancel = this.configDialog.getByRole("button", { name: "Cancel" });
+    this.styleList = page.locator("#style-list");
+    this.addStyle = page.getByRole("button", { name: "Add style" });
+    this.styleDialog = page.locator("#style-dialog");
+    this.stylePreview = page.locator("#style-preview");
+    this.styleName = this.styleDialog.getByLabel("Name");
+    this.styleStart = this.styleDialog.getByLabel("Starts at (minutes from zero)");
+    this.stylePlusDuration = this.styleDialog.getByLabel("plus the timer duration");
+    this.styleBackground = this.styleDialog.getByLabel("Background");
+    this.styleColor = this.styleDialog.getByLabel("Text color");
+    this.styleFont = this.styleDialog.getByLabel("Font");
+    this.styleWeight = this.styleDialog.getByLabel("Weight");
+    this.styleSize = this.styleDialog.getByLabel(/^Size/);
+    this.styleShadow = this.styleDialog.getByLabel("Text shadow");
+    this.styleEnabled = this.styleDialog.getByLabel("Enabled");
+    this.styleDelete = this.styleDialog.getByRole("button", { name: "Delete" });
+    this.styleDone = this.styleDialog.getByRole("button", { name: "Done" });
+    this.styleCancel = this.styleDialog.getByRole("button", { name: "Cancel" });
     this.startPause = page.locator("#start-pause");
     this.reset = page.getByRole("button", { name: "Reset" });
     this.fullscreen = page.locator("#fullscreen");
@@ -71,9 +92,63 @@ export class TimerPage {
     await this.click(this.scheduleButton);
   }
 
+  async openConfig() {
+    await this.click(this.configButton);
+    await expect(this.configDialog).toBeVisible();
+  }
+
+  /** Sets the timer duration through the configuration dialog. */
   async setMinutes(minutes) {
-    await this.duration.fill(String(minutes));
-    await this.duration.dispatchEvent("change");
+    await this.openConfig();
+    await this.configDuration.fill(String(minutes));
+    await this.configSave.click();
+    await expect(this.configDialog).toBeHidden();
+  }
+
+  /** The row in the style list for a style. */
+  styleRow(name) {
+    return this.configDialog.getByRole("button", { name: `Edit ${name}`, exact: true });
+  }
+
+  styleToggle(name) {
+    return this.configDialog.getByRole("checkbox", { name: `Enable ${name}`, exact: true });
+  }
+
+  async editStyle(name) {
+    await this.styleRow(name).click();
+    await expect(this.styleDialog).toBeVisible();
+  }
+
+  /** Names in the style list, top to bottom. */
+  async styleNames() {
+    return this.styleList.locator(".style-name").allTextContents();
+  }
+
+  async saveConfig() {
+    await this.configSave.click();
+    await expect(this.configDialog).toBeHidden();
+  }
+
+  /** The id of the style currently applied to the page ("" for none). */
+  async currentStyle() {
+    return this.page.locator("body").getAttribute("data-style");
+  }
+
+  async expectStyle(id) {
+    await expect(this.page.locator("body")).toHaveAttribute("data-style", id);
+  }
+
+  async background() {
+    return this.page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  }
+
+  async storedConfig() {
+    return this.page.evaluate(() => JSON.parse(localStorage.getItem("scheduled-timer:config")));
+  }
+
+  /** Writes config straight to storage, as a previous visit would have. */
+  async storeConfig(config) {
+    await this.page.evaluate((value) => localStorage.setItem("scheduled-timer:config", JSON.stringify(value)), config);
   }
 
   /** Advances the fake clock, firing every timer along the way. */

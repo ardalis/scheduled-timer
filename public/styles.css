@@ -9,7 +9,6 @@
   --fg: #f4f6f8;
   --muted: #8a94a3;
   --accent: #4cc2ff;
-  --warn: #ffb020;
   --done: #ff4d4f;
   --panel: rgba(255, 255, 255, 0.06);
   --border: rgba(255, 255, 255, 0.14);
@@ -29,6 +28,26 @@ body {
   overflow: hidden;
 }
 
+/* The current timer style (see styles-core.js), applied through custom properties. */
+body.styled {
+  background: var(--style-bg);
+}
+
+body.styled .stage {
+  color: var(--style-fg);
+}
+
+body.styled .display {
+  font-family: var(--style-font);
+  font-weight: var(--style-weight);
+  text-shadow: var(--style-shadow);
+}
+
+body.styled .status {
+  color: var(--style-fg);
+  opacity: 0.85;
+}
+
 .stage {
   position: fixed;
   inset: 0;
@@ -40,7 +59,13 @@ body {
 }
 
 .display {
-  font-size: min(36vw, 72vh);
+  /* Sized so the readout fits the width whatever its length (set from JS),
+     scaled by the current style and shrunk further if a font runs wide. */
+  --chars: 5;
+  --fit: 1;
+  max-width: 100%;
+  font-size: calc(min(calc(150vw / (var(--chars) + 0.4)), 70vh) * var(--style-scale, 1) * var(--fit));
+  white-space: nowrap;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -65,19 +90,8 @@ body[data-state="paused"] .display {
   opacity: 0.55;
 }
 
-body.final-minute .display {
-  color: var(--warn);
-}
-
-body[data-state="finished"] .display {
+body.overtime:not(.styled) .display {
   color: var(--done);
-  animation: blink 1s steps(2, start) infinite;
-}
-
-@keyframes blink {
-  to {
-    visibility: hidden;
-  }
 }
 
 .controls {
@@ -92,14 +106,15 @@ body[data-state="finished"] .display {
   width: max-content;
   max-width: calc(100vw - 2rem);
   padding: 0.75rem 1rem;
-  background: var(--panel);
+  background: rgba(10, 12, 16, 0.55);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   backdrop-filter: blur(6px);
   transition: opacity 0.4s;
 }
 
-body.controls-hidden .controls {
+body.controls-hidden .controls,
+body.controls-hidden .config-button {
   opacity: 0;
   pointer-events: none;
 }
@@ -144,11 +159,234 @@ button:focus-visible {
   border-color: var(--accent);
 }
 
-button[type="submit"] {
+button[type="submit"],
+button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #001826;
   font-weight: 600;
+}
+
+.config-button {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(10, 12, 16, 0.55);
+  color: #c3cad3;
+  transition: opacity 0.4s, color 0.2s;
+}
+
+.config-button:hover,
+.config-button:focus-visible {
+  color: var(--fg);
+}
+
+.config-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.5rem;
+  color: var(--fg);
+  background: #161a20;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.config-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.config-dialog h2 {
+  margin: 0 0 1.25rem;
+  font-size: 1.4rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.hint,
+.error {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--done);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--done);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.style-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.style-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.style-item.is-disabled .style-row {
+  opacity: 0.5;
+}
+
+.style-row {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.style-swatch,
+.style-preview {
+  background: var(--style-bg);
+  color: var(--style-fg);
+  font-family: var(--style-font);
+  font-weight: var(--style-weight);
+  text-shadow: var(--style-shadow);
+  font-variant-numeric: tabular-nums;
+}
+
+.style-swatch {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2rem;
+  border-radius: 0.3rem;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.style-start {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.checkbox input {
+  width: auto;
+}
+
+.style-preview {
+  display: grid;
+  place-items: center;
+  height: 8rem;
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+}
+
+.style-preview-clock {
+  font-size: calc(5rem * var(--style-scale, 1));
+  line-height: 1;
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inline input[type="number"] {
+  width: 7rem;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  column-gap: 1rem;
+}
+
+.field-grid .field {
+  margin-bottom: 1rem;
+}
+
+.field input[type="color"] {
+  height: 2.4rem;
+  padding: 0.2rem;
+}
+
+.field.checkboxes {
+  align-content: end;
+}
+
+select {
+  font: inherit;
+  color: inherit;
+  background: #22272e;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.dialog-actions .spacer {
+  flex: 1;
+}
+
+button.danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #ffb3b4;
+  border-color: rgba(255, 77, 79, 0.5);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 [hidden] {

@@ -1,0 +1,25 @@
+/* Self-hosted fonts for the built-in styles (SIL Open Font License 1.1, see LICENSE-*.txt).
+   Latin subsets from Fontsource (@fontsource/bangers 5.3.0, @fontsource/caveat 5.3.0). */
+@font-face {
+  font-family: "Bangers";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./bangers-latin-400-normal.woff2) format("woff2");
+}
+
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./caveat-latin-400-normal.woff2) format("woff2");
+}
+
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./caveat-latin-700-normal.woff2) format("woff2");
+}
