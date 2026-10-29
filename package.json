@@ -1,0 +1,14 @@
+{
+  "name": "scheduled-timer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A speaker tool that starts a configured countdown timer at a specific time.",
+  "scripts": {
+    "dev": "wrangler pages dev",
+    "deploy": "wrangler pages deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "license": "MIT"
+}

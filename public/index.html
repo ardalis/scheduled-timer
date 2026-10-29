@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scheduled Timer</title>
+  <meta name="description" content="A speaker tool that starts a countdown timer at a specific time.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="idle">
+  <main class="stage">
+    <p id="status" class="status" aria-live="polite"></p>
+    <div id="display" class="display" role="timer" aria-live="off">05:00</div>
+  </main>
+
+  <section id="controls" class="controls" aria-label="Timer controls">
+    <form id="schedule-form" class="group">
+      <label for="start-time">Start at</label>
+      <input id="start-time" type="time" required>
+      <button type="submit">Schedule</button>
+      <button type="button" id="cancel-schedule" hidden>Cancel schedule</button>
+    </form>
+
+    <div class="group">
+      <label for="duration">Minutes</label>
+      <input id="duration" type="number" min="1" max="999" step="1" value="5">
+      <button type="button" id="start-pause">Start now</button>
+      <button type="button" id="reset">Reset</button>
+      <button type="button" id="fullscreen" title="Toggle full screen (F)">Full screen</button>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
