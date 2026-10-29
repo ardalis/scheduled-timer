@@ -429,3 +429,8 @@ FodyWeavers.xsd
 
 # Wrangler
 .wrangler/
+
+# Tests
+coverage/
+test-results/
+playwright-report/
