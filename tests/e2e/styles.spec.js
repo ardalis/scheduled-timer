@@ -62,7 +62,7 @@ test.describe("styles on screen", () => {
     await timer.click(timer.startPause);
     await timer.expectState("paused");
     await timer.expectStyle("active");
-    await timer.click(timer.reset);
+    await timer.resetTimer();
     await timer.expectStyle("inactive");
   });
 
@@ -276,7 +276,7 @@ test.describe("styles in configuration", () => {
     await timer.openConfig();
     await timer.addStyle.click();
     await expect(timer.styleDialog).toBeVisible();
-    await expect(timer.styleDialog.getByRole("heading")).toHaveText("Add style");
+    await expect(timer.styleDialog.getByRole("heading", { level: 2 })).toHaveText("Add style");
     await expect(timer.styleDelete).toBeDisabled();
 
     await timer.styleName.fill("Wrap it up");

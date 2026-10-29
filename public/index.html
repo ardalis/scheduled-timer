@@ -18,6 +18,12 @@
 
   <main class="stage">
     <p id="status" class="status" aria-live="polite"></p>
+    <div id="summary" class="summary" aria-label="Presentation schedule" hidden>
+      <p class="summary-duration"></p>
+      <p class="summary-scheduled"></p>
+      <p class="summary-when"></p>
+      <p class="summary-countdown"></p>
+    </div>
     <div id="display" class="display" role="timer" aria-live="off">05:00</div>
   </main>
 
@@ -31,7 +37,7 @@
 
     <div class="group">
       <button type="button" id="start-pause">Start now</button>
-      <button type="button" id="reset">Reset</button>
+      <button type="button" id="reset" title="Click twice to reset">Reset</button>
       <button type="button" id="fullscreen" title="Toggle full screen (F)">Full screen</button>
     </div>
   </section>
@@ -41,13 +47,42 @@
       <h2 id="config-title">Configuration</h2>
 
       <div class="field">
-        <label for="config-duration">Timer duration (minutes)</label>
+        <label for="config-duration">Presentation duration (minutes)</label>
         <input id="config-duration" name="durationMinutes" type="number" min="0.0167" max="1440" step="any"
           inputmode="decimal" required aria-describedby="config-duration-hint config-duration-error">
-        <p id="config-duration-hint" class="hint">Any number of minutes, e.g. 20 or 7.5.</p>
+        <p id="config-duration-hint" class="hint">How long your talk is; the timer counts down from this. Any number of minutes, e.g. 20 or 7.5.</p>
         <p id="config-duration-error" class="error" role="alert" hidden></p>
         <p id="config-duration-pending" class="hint" hidden>The new duration applies when the current timer is reset.</p>
       </div>
+
+      <div class="field">
+        <label class="checkbox"><input id="config-keyboard" type="checkbox" aria-describedby="config-keyboard-hint">
+          Space starts and pauses the timer</label>
+        <p id="config-keyboard-hint" class="hint">Off by default, so a presentation remote sending keys to this window
+          can't change the timer.</p>
+      </div>
+
+      <section class="field" aria-labelledby="themes-heading">
+        <div class="section-header">
+          <h3 id="themes-heading">Theme</h3>
+        </div>
+        <p class="hint">A theme is a named set of styles. Choosing one replaces the styles below.</p>
+        <div class="inline">
+          <select id="theme-select" aria-label="Theme" class="grow"></select>
+          <button type="button" id="theme-delete" class="danger">Delete theme</button>
+        </div>
+        <div class="inline">
+          <input id="theme-name" type="text" maxlength="40" aria-label="Theme name" placeholder="Theme name" class="grow">
+          <button type="button" id="theme-save">Save as theme</button>
+        </div>
+        <div class="inline">
+          <button type="button" id="theme-export">Export theme</button>
+          <button type="button" id="theme-import">Import theme</button>
+          <input id="theme-import-file" type="file" accept=".json,application/json" hidden aria-label="Theme file">
+        </div>
+        <p id="theme-status" class="hint" role="status"></p>
+        <p id="theme-error" class="error" role="alert" hidden></p>
+      </section>
 
       <section class="field" aria-labelledby="styles-heading">
         <div class="section-header">
@@ -87,9 +122,11 @@
       <div class="field" id="style-start-field">
         <label for="style-start">Starts at (minutes from zero)</label>
         <div class="inline">
-          <input id="style-start" type="number" step="any" inputmode="decimal" aria-describedby="style-start-hint style-start-error">
-          <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the timer duration</label>
+          <input id="style-start" type="text" spellcheck="false" autocomplete="off"
+            aria-describedby="style-start-hint style-start-error">
+          <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the presentation duration</label>
         </div>
+        <p class="hint">Or use <code>$duration</code>, the presentation duration, e.g. <code>$duration / 10</code>.</p>
         <p id="style-start-hint" class="hint"></p>
         <p id="style-start-error" class="error" role="alert" hidden></p>
       </div>
@@ -121,6 +158,19 @@
           <label class="checkbox"><input id="style-enabled" type="checkbox"> Enabled</label>
         </div>
       </div>
+
+      <section class="field" id="style-effects-field" aria-labelledby="style-effects-heading">
+        <div class="section-header">
+          <h3 id="style-effects-heading">Effects</h3>
+          <div class="inline">
+            <select id="effect-type" aria-label="Effect type"></select>
+            <button type="button" id="add-effect">Add effect</button>
+          </div>
+        </div>
+        <p class="hint">Each effect starts a number of seconds after the style begins.</p>
+        <ul id="effect-list" class="effect-list" aria-labelledby="style-effects-heading"></ul>
+        <p id="effect-error" class="error" role="alert" hidden></p>
+      </section>
 
       <div class="dialog-actions">
         <span id="style-delete-wrap" class="delete-wrap">

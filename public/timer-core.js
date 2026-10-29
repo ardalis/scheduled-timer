@@ -129,3 +129,29 @@ export function restoreSchedule(savedValue, durationMs, now) {
 export function isStopped(remainingMs) {
   return remainingMs <= -MAX_OVERTIME_MS;
 }
+
+/** "TODAY", "TOMORROW", or the weekday ("FRIDAY") of `start`, by local date relative to `now`. */
+export function describeDay(start, now = new Date()) {
+  const midnight = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  // Round, since a day across a daylight saving change isn't exactly 24 hours.
+  const days = Math.round((midnight(start) - midnight(now)) / DAY_MS);
+  if (days === 0) return "TODAY";
+  if (days === 1) return "TOMORROW";
+  return start.toLocaleDateString([], { weekday: "long" }).toUpperCase();
+}
+
+/**
+ * The lines of the summary card on the Inactive screen while a start is
+ * scheduled, e.g. "Your 20 minute presentation" / "is scheduled for" /
+ * "10:30 AM TODAY" / "29:59 minutes to go!". `formatTime` formats the start.
+ */
+export function scheduleSummary(durationMinutes, startMs, nowMs, formatTime) {
+  const untilStart = Math.max(0, startMs - nowMs);
+  const unit = Math.ceil(untilStart / 1000) >= 3600 ? "hours" : "minutes";
+  return [
+    `Your ${Number(durationMinutes.toFixed(2))} minute presentation`,
+    "is scheduled for",
+    `${formatTime(new Date(startMs))} ${describeDay(new Date(startMs), new Date(nowMs))}`,
+    `${formatClock(untilStart)} ${unit} to go!`,
+  ];
+}

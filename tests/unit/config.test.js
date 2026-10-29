@@ -36,8 +36,14 @@ const throwingStorage = {
 };
 
 describe("defaultConfig", () => {
-  it("defaults to a 5 minute timer with the built-in styles", () => {
-    assert.deepEqual(defaultConfig(), { durationMinutes: 5, styles: defaultStyles() });
+  it("defaults to a 5 minute timer with the built-in styles from the Default theme", () => {
+    assert.deepEqual(defaultConfig(), {
+      durationMinutes: 5,
+      styles: defaultStyles(),
+      themes: [],
+      themeId: "default",
+      keyboardControl: false,
+    });
   });
 
   it("returns a fresh object each time", () => {
@@ -110,6 +116,30 @@ describe("normalizeConfig", () => {
     assert.deepEqual(config.styles.map((s) => s.id), ["active", "inactive", "starting-soon", "overtime"]);
     assert.equal(config.styles[0].name, "Go");
     assert.equal(config.styles[0].enabled, false);
+  });
+
+  it("keeps saved themes and the chosen theme", () => {
+    const themes = [{ id: "theme-a", name: "Big room", styles: defaultStyles() }];
+    const config = normalizeConfig({ themes, themeId: "theme-a" });
+    assert.deepEqual(config.themes, themes);
+    assert.equal(config.themeId, "theme-a");
+    assert.equal(normalizeConfig({ themes, themeId: null }).themeId, null);
+  });
+
+  it("treats a config from before themes as the Default theme", () => {
+    assert.equal(normalizeConfig({ durationMinutes: 5 }).themeId, "default");
+  });
+
+  it("turns keyboard control on only when explicitly true", () => {
+    assert.equal(normalizeConfig({ keyboardControl: true }).keyboardControl, true);
+    for (const value of [false, "true", 1, undefined]) {
+      assert.equal(normalizeConfig({ keyboardControl: value }).keyboardControl, false, String(value));
+    }
+  });
+
+  it("forgets a chosen theme that no longer exists", () => {
+    assert.equal(normalizeConfig({ themes: [], themeId: "theme-gone" }).themeId, null);
+    assert.equal(normalizeConfig({ themeId: 7 }).themeId, null);
   });
 });
 

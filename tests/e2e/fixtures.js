@@ -43,21 +43,32 @@ export class TimerPage {
     this.page = page;
     this.display = page.locator("#display");
     this.status = page.locator("#status");
+    this.summary = page.locator("#summary");
     this.startTime = page.locator("#start-time");
     this.scheduleButton = page.getByRole("button", { name: "Schedule", exact: true });
     this.cancelSchedule = page.getByRole("button", { name: "Cancel schedule" });
     this.configButton = page.getByRole("button", { name: "Configuration" });
     this.configDialog = page.locator("#config-dialog");
-    this.configDuration = page.getByLabel("Timer duration (minutes)");
-    this.configSave = this.configDialog.getByRole("button", { name: "Save" });
-    this.configCancel = this.configDialog.getByRole("button", { name: "Cancel" });
+    this.configDuration = page.getByLabel("Presentation duration (minutes)");
+    this.configSave = this.configDialog.getByRole("button", { name: "Save", exact: true });
+    this.configCancel = this.configDialog.getByRole("button", { name: "Cancel", exact: true });
+    this.themeSelect = page.getByRole("combobox", { name: "Theme", exact: true });
+    this.themeName = page.getByRole("textbox", { name: "Theme name" });
+    this.themeSave = page.getByRole("button", { name: "Save as theme" });
+    this.themeDelete = page.getByRole("button", { name: "Delete theme" });
+    this.themeExport = page.getByRole("button", { name: "Export theme" });
+    this.themeImport = page.getByRole("button", { name: "Import theme" });
+    this.themeFile = page.locator("#theme-import-file");
+    this.themeStatus = page.locator("#theme-status");
+    this.themeError = page.locator("#theme-error");
     this.styleList = page.locator("#style-list");
+    this.effectList = page.locator("#effect-list");
     this.addStyle = page.getByRole("button", { name: "Add style" });
     this.styleDialog = page.locator("#style-dialog");
     this.stylePreview = page.locator("#style-preview");
     this.styleName = this.styleDialog.getByLabel("Name");
     this.styleStart = this.styleDialog.getByLabel("Starts at (minutes from zero)");
-    this.stylePlusDuration = this.styleDialog.getByLabel("plus the timer duration");
+    this.stylePlusDuration = this.styleDialog.getByLabel("plus the presentation duration");
     this.styleBackground = this.styleDialog.getByLabel("Background");
     this.styleColor = this.styleDialog.getByLabel("Text color");
     this.styleFont = this.styleDialog.getByLabel("Font");
@@ -69,7 +80,8 @@ export class TimerPage {
     this.styleDone = this.styleDialog.getByRole("button", { name: "Done" });
     this.styleCancel = this.styleDialog.getByRole("button", { name: "Cancel" });
     this.startPause = page.locator("#start-pause");
-    this.reset = page.getByRole("button", { name: "Reset" });
+    this.reset = page.locator("#reset");
+    this.configKeyboard = page.getByLabel("Space starts and pauses the timer");
     this.fullscreen = page.locator("#fullscreen");
     this.controls = page.locator("#controls");
   }
@@ -99,7 +111,7 @@ export class TimerPage {
     await expect(this.configDialog).toBeVisible();
   }
 
-  /** Sets the timer duration through the configuration dialog. */
+  /** Sets the presentation duration through the configuration dialog. */
   async setMinutes(minutes) {
     await this.openConfig();
     await this.configDuration.fill(String(minutes));
@@ -175,6 +187,21 @@ export class TimerPage {
     await this.page.mouse.move(5, 5);
     await this.page.mouse.move(10, 10);
     await locator.click();
+  }
+
+  /** Resets the timer, which takes two clicks. */
+  async resetTimer() {
+    await this.click(this.reset);
+    await expect(this.reset).toHaveText("Confirm reset");
+    await this.click(this.reset);
+    await expect(this.reset).toHaveText("Reset");
+  }
+
+  /** Turns on Space to start and pause, which is off by default. */
+  async enableKeyboardControl() {
+    await this.openConfig();
+    await this.configKeyboard.check();
+    await this.saveConfig();
   }
 
   async cookie(name) {

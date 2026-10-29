@@ -10,9 +10,10 @@ test.describe("configuration", () => {
     expect(box.y).toBeLessThan(40);
   });
 
-  test("opens with the default 5 minute duration", async ({ timer }) => {
+  test("opens with the default 5 minute presentation duration", async ({ timer }) => {
     await timer.open();
     await timer.openConfig();
+    await expect(timer.configDialog.getByText("Presentation duration (minutes)")).toBeVisible();
     await expect(timer.configDuration).toHaveValue("5");
     await expect(timer.configDuration).toBeFocused();
   });
@@ -133,7 +134,7 @@ test.describe("configuration", () => {
     await timer.configSave.click();
 
     await expect(timer.display).toHaveText("04:50");
-    await timer.click(timer.reset);
+    await timer.resetTimer();
     await expect(timer.display).toHaveText("10:00");
   });
 
