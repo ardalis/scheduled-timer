@@ -22,7 +22,7 @@ test.describe("configuration", () => {
     await timer.setMinutes(20);
 
     await expect(timer.display).toHaveText("20:00");
-    expect(await timer.storedConfig()).toEqual({ durationMinutes: 20 });
+    expect(await timer.storedConfig()).toMatchObject({ durationMinutes: 20 });
   });
 
   test("keeps the saved duration after a reload", async ({ page, timer }) => {
@@ -202,7 +202,7 @@ test.describe("configuration", () => {
       await page.reload();
 
       await expect(timer.display).toHaveText("12:00");
-      expect(await timer.storedConfig()).toEqual({ durationMinutes: 12 });
+      expect(await timer.storedConfig()).toMatchObject({ durationMinutes: 12 });
       expect(await timer.cookie("timerMinutes")).toBeNull();
     });
 

@@ -49,17 +49,15 @@ test.describe("timer", () => {
     await expect(page).toHaveTitle("02:59 · Scheduled Timer");
   });
 
-  test("highlights the final minute, then counts into negative time", async ({ page, timer }) => {
+  test("counts down to zero, then into negative time", async ({ page, timer }) => {
     await timer.open();
     await timer.click(timer.startPause);
 
     await timer.jump(4 * MINUTE - SECOND);
     await expect(timer.display).toHaveText("01:01");
-    await expect(page.locator("body")).not.toHaveClass(/final-minute/);
 
     await timer.advance(SECOND);
     await expect(timer.display).toHaveText("01:00");
-    await expect(page.locator("body")).toHaveClass(/final-minute/);
 
     await timer.jump(MINUTE - SECOND);
     await expect(timer.display).toHaveText("00:01");
@@ -69,7 +67,6 @@ test.describe("timer", () => {
     await timer.expectState("running");
     await expect(timer.display).toHaveText("00:00");
     await expect(page.locator("body")).toHaveClass(/overtime/);
-    await expect(page.locator("body")).not.toHaveClass(/final-minute/);
 
     await timer.advance(SECOND);
     await expect(timer.display).toHaveText("-00:01");

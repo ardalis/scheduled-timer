@@ -76,7 +76,9 @@ export class TimerPage {
 
   /** Installs a paused fake clock at `time`, then loads the app. */
   async open(time = MORNING) {
-    await this.page.clock.install({ time });
+    // Install a minute early: the clock runs until paused, and pausing at a
+    // time it has already passed throws.
+    await this.page.clock.install({ time: new Date(time.getTime() - MINUTE) });
     // Paused, so time only moves when a test advances it (including across reloads).
     await this.page.clock.pauseAt(time);
     await this.page.goto("/");
