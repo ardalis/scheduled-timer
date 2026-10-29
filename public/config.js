@@ -12,7 +12,15 @@ export const MAX_DURATION_MINUTES = 24 * 60;
 export function defaultConfig() {
   // themeId: the theme last chosen or saved (null if none); the styles are a
   // working copy that may have changed since.
-  return { durationMinutes: DEFAULT_MINUTES, styles: defaultStyles(), themes: [], themeId: DEFAULT_THEME_ID };
+  // keyboardControl: whether Space starts and pauses the timer. Off by default so
+  // a presentation remote sending keys to this window can't change the timer.
+  return {
+    durationMinutes: DEFAULT_MINUTES,
+    styles: defaultStyles(),
+    themes: [],
+    themeId: DEFAULT_THEME_ID,
+    keyboardControl: false,
+  };
 }
 
 /**
@@ -42,6 +50,7 @@ export function normalizeConfig(raw) {
     const known = raw.themeId === DEFAULT_THEME_ID || config.themes.some((theme) => theme.id === raw.themeId);
     // Configs from before themes have no themeId; their styles started as Default.
     config.themeId = raw.themeId === undefined || known ? raw.themeId ?? DEFAULT_THEME_ID : null;
+    config.keyboardControl = raw.keyboardControl === true;
   }
   return config;
 }

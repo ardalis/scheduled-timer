@@ -133,7 +133,7 @@ test.describe("configuration", () => {
     await timer.configSave.click();
 
     await expect(timer.display).toHaveText("04:50");
-    await timer.click(timer.reset);
+    await timer.resetTimer();
     await expect(timer.display).toHaveText("10:00");
   });
 

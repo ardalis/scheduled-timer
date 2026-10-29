@@ -37,7 +37,13 @@ const throwingStorage = {
 
 describe("defaultConfig", () => {
   it("defaults to a 5 minute timer with the built-in styles from the Default theme", () => {
-    assert.deepEqual(defaultConfig(), { durationMinutes: 5, styles: defaultStyles(), themes: [], themeId: "default" });
+    assert.deepEqual(defaultConfig(), {
+      durationMinutes: 5,
+      styles: defaultStyles(),
+      themes: [],
+      themeId: "default",
+      keyboardControl: false,
+    });
   });
 
   it("returns a fresh object each time", () => {
@@ -122,6 +128,13 @@ describe("normalizeConfig", () => {
 
   it("treats a config from before themes as the Default theme", () => {
     assert.equal(normalizeConfig({ durationMinutes: 5 }).themeId, "default");
+  });
+
+  it("turns keyboard control on only when explicitly true", () => {
+    assert.equal(normalizeConfig({ keyboardControl: true }).keyboardControl, true);
+    for (const value of [false, "true", 1, undefined]) {
+      assert.equal(normalizeConfig({ keyboardControl: value }).keyboardControl, false, String(value));
+    }
   });
 
   it("forgets a chosen theme that no longer exists", () => {
