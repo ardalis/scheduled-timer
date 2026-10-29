@@ -62,7 +62,7 @@ test.describe("styles on screen", () => {
     await timer.click(timer.startPause);
     await timer.expectState("paused");
     await timer.expectStyle("active");
-    await timer.click(timer.reset);
+    await timer.resetTimer();
     await timer.expectStyle("inactive");
   });
 

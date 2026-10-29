@@ -79,7 +79,8 @@ export class TimerPage {
     this.styleDone = this.styleDialog.getByRole("button", { name: "Done" });
     this.styleCancel = this.styleDialog.getByRole("button", { name: "Cancel" });
     this.startPause = page.locator("#start-pause");
-    this.reset = page.getByRole("button", { name: "Reset" });
+    this.reset = page.locator("#reset");
+    this.configKeyboard = page.getByLabel("Space starts and pauses the timer");
     this.fullscreen = page.locator("#fullscreen");
     this.controls = page.locator("#controls");
   }
@@ -185,6 +186,21 @@ export class TimerPage {
     await this.page.mouse.move(5, 5);
     await this.page.mouse.move(10, 10);
     await locator.click();
+  }
+
+  /** Resets the timer, which takes two clicks. */
+  async resetTimer() {
+    await this.click(this.reset);
+    await expect(this.reset).toHaveText("Confirm reset");
+    await this.click(this.reset);
+    await expect(this.reset).toHaveText("Reset");
+  }
+
+  /** Turns on Space to start and pause, which is off by default. */
+  async enableKeyboardControl() {
+    await this.openConfig();
+    await this.configKeyboard.check();
+    await this.saveConfig();
   }
 
   async cookie(name) {

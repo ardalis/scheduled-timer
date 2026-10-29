@@ -31,7 +31,7 @@
 
     <div class="group">
       <button type="button" id="start-pause">Start now</button>
-      <button type="button" id="reset">Reset</button>
+      <button type="button" id="reset" title="Click twice to reset">Reset</button>
       <button type="button" id="fullscreen" title="Toggle full screen (F)">Full screen</button>
     </div>
   </section>
@@ -47,6 +47,13 @@
         <p id="config-duration-hint" class="hint">Any number of minutes, e.g. 20 or 7.5.</p>
         <p id="config-duration-error" class="error" role="alert" hidden></p>
         <p id="config-duration-pending" class="hint" hidden>The new duration applies when the current timer is reset.</p>
+      </div>
+
+      <div class="field">
+        <label class="checkbox"><input id="config-keyboard" type="checkbox" aria-describedby="config-keyboard-hint">
+          Space starts and pauses the timer</label>
+        <p id="config-keyboard-hint" class="hint">Off by default, so a presentation remote sending keys to this window
+          can't change the timer.</p>
       </div>
 
       <section class="field" aria-labelledby="themes-heading">

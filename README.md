@@ -27,7 +27,8 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 - Pick a start time; it's scheduled for the next occurrence of that local time within 24 hours.
 - Before the start, shows "Timer will begin in (timespan)." in natural units.
 - The scheduled start is stored in a cookie, so reloading the page keeps (or resumes) the timer.
-- Start/pause/reset manually; `Space` toggles start/pause, `F` toggles full screen.
+- Start/pause/reset manually. Reset takes a second click within 4 seconds, so it's hard to hit by accident. `F` toggles full screen.
+- Safe with a presentation remote: by default no key changes the timer, and clicking a control doesn't leave it focused, so keys a remote sends to this window (Page Down, arrows, Enter, Space, B) can't start, pause, reset, or reschedule it. `Space` to start and pause can be turned on in configuration.
 - Controls and cursor hide while the timer is running and the mouse is idle.
 
 ## Prerequisites

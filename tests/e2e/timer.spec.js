@@ -161,7 +161,7 @@ test.describe("timer", () => {
     await timer.open();
     await timer.click(timer.startPause);
     await timer.jump(7 * MINUTE);
-    await timer.click(timer.reset);
+    await timer.resetTimer();
     await timer.expectState("idle");
     await expect(timer.display).toHaveText("05:00");
     await expect(page.locator("body")).not.toHaveClass(/overtime/);
@@ -204,7 +204,7 @@ test.describe("timer", () => {
     await timer.open();
     await timer.click(timer.startPause);
     await timer.advance(90 * SECOND);
-    await timer.click(timer.reset);
+    await timer.resetTimer();
 
     await timer.expectState("idle");
     await expect(timer.display).toHaveText("05:00");

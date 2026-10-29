@@ -28,10 +28,13 @@ const SCHEDULE_COOKIE = "scheduledStart";
 // Older versions stored the duration in this cookie; it's migrated to the config.
 const LEGACY_MINUTES_COOKIE = "timerMinutes";
 const CONTROLS_IDLE_MS = 3000;
+// Reset needs a second click within this time, so it's hard to hit by accident.
+const RESET_CONFIRM_MS = 4000;
 
 const $ = (id) => document.getElementById(id);
 const els = {
   body: document.body,
+  controls: $("controls"),
   status: $("status"),
   display: $("display"),
   form: $("schedule-form"),
@@ -46,6 +49,7 @@ const els = {
   configDuration: $("config-duration"),
   configDurationError: $("config-duration-error"),
   configDurationPending: $("config-duration-pending"),
+  configKeyboard: $("config-keyboard"),
   configStorageError: $("config-storage-error"),
   configCancel: $("config-cancel"),
 };
@@ -87,6 +91,7 @@ function formatLocalTime(date) {
 const state = {
   mode: "idle",
   styles: [],
+  keyboardControl: false,
   durationMs: DEFAULT_MINUTES * 60 * 1000,
   scheduledStart: null, // epoch ms
   endTime: null, // epoch ms
@@ -263,6 +268,8 @@ els.form.addEventListener("submit", (event) => {
   const time = parseTimeInput(els.startTime.value);
   if (!time) return;
   schedule(nextOccurrence(time.hours, time.minutes).getTime());
+  // Don't leave the time (or the button) focused, where a remote's keys would change it.
+  document.activeElement?.blur();
 });
 
 els.cancelSchedule.addEventListener("click", reset);
@@ -271,6 +278,7 @@ els.cancelSchedule.addEventListener("click", reset);
 
 function applyConfig(config) {
   state.styles = config.styles;
+  state.keyboardControl = config.keyboardControl;
   setDurationMinutes(config.durationMinutes);
   // Re-save the cookie so its lifetime covers the new duration.
   if (state.mode === "waiting") schedule(state.scheduledStart);
@@ -308,6 +316,7 @@ function openConfig() {
   // Always reload from storage, so the dialog shows what is actually saved.
   draft = loadConfig(storage);
   els.configDuration.value = formatDurationMinutes(draft.durationMinutes);
+  els.configKeyboard.checked = draft.keyboardControl;
   styleEditor.renderList();
   themePicker.reset();
   showDurationError("");
@@ -328,7 +337,7 @@ els.configForm.addEventListener("submit", (event) => {
     els.configDuration.focus();
     return;
   }
-  const config = { ...draft, durationMinutes };
+  const config = { ...draft, durationMinutes, keyboardControl: els.configKeyboard.checked };
   const saved = saveConfig(storage, config);
   applyConfig(config);
   if (saved) {
@@ -353,7 +362,33 @@ els.startPause.addEventListener("click", () => {
   }
 });
 
-els.reset.addEventListener("click", reset);
+let resetArmedTimer = null;
+
+function disarmReset() {
+  clearTimeout(resetArmedTimer);
+  resetArmedTimer = null;
+  els.reset.classList.remove("armed");
+  els.reset.textContent = "Reset";
+}
+
+els.reset.addEventListener("click", () => {
+  if (resetArmedTimer === null) {
+    els.reset.classList.add("armed");
+    els.reset.textContent = "Confirm reset";
+    resetArmedTimer = setTimeout(disarmReset, RESET_CONFIRM_MS);
+    return;
+  }
+  disarmReset();
+  reset();
+});
+
+// A mouse click shouldn't leave a control focused: keys from a presentation
+// remote would go to it (Enter or Space would click it again). Keyboard users
+// keep focus as usual; a click from the keyboard has detail 0.
+els.controls.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (button && event.detail > 0) button.blur();
+});
 
 function toggleFullscreen() {
   if (document.fullscreenElement) {
@@ -375,7 +410,7 @@ document.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLButtonElement && event.key === " ") return;
   if (event.key === "f" || event.key === "F") {
     toggleFullscreen();
-  } else if (event.key === " ") {
+  } else if (event.key === " " && state.keyboardControl) {
     event.preventDefault();
     els.startPause.click();
   }
@@ -387,7 +422,7 @@ function showControls() {
   els.body.classList.remove("controls-hidden");
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
-    const focusedInControls = document.getElementById("controls").contains(document.activeElement)
+    const focusedInControls = els.controls.contains(document.activeElement)
       && document.activeElement instanceof HTMLInputElement;
     if (state.mode === "running" && !focusedInControls && !els.configDialog.open) {
       els.body.classList.add("controls-hidden");
@@ -416,6 +451,7 @@ function loadInitialConfig() {
 function init() {
   const config = loadInitialConfig();
   state.styles = config.styles;
+  state.keyboardControl = config.keyboardControl;
   setDurationMinutes(config.durationMinutes);
 
   const restored = restoreSchedule(getCookie(SCHEDULE_COOKIE), state.durationMs, Date.now());
