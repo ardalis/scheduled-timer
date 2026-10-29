@@ -143,6 +143,21 @@ body.show-summary .display {
   --max-height: 40vh;
 }
 
+.sound-blocked {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 9rem);
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  color: var(--fg);
+  background: rgba(10, 12, 16, 0.8);
+  border: 1px solid var(--done);
+  border-radius: 0.5rem;
+}
+
 body[data-state="waiting"] .status {
   color: var(--accent);
 }

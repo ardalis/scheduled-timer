@@ -4,6 +4,7 @@
 import { DEFAULT_MINUTES } from "./timer-core.js";
 import { defaultStyles, normalizeStyles } from "./styles-core.js";
 import { DEFAULT_THEME_ID, normalizeThemes } from "./themes-core.js";
+import { defaultSounds, normalizeSounds } from "./sounds-core.js";
 
 export const CONFIG_KEY = "scheduled-timer:config";
 // Up to a day; anything longer isn't a presentation timer.
@@ -20,6 +21,7 @@ export function defaultConfig() {
     themes: [],
     themeId: DEFAULT_THEME_ID,
     keyboardControl: false,
+    sounds: defaultSounds(),
   };
 }
 
@@ -51,6 +53,7 @@ export function normalizeConfig(raw) {
     // Configs from before themes have no themeId; their styles started as Default.
     config.themeId = raw.themeId === undefined || known ? raw.themeId ?? DEFAULT_THEME_ID : null;
     config.keyboardControl = raw.keyboardControl === true;
+    config.sounds = normalizeSounds(raw.sounds);
   }
   return config;
 }
