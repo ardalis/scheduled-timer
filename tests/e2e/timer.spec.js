@@ -49,7 +49,7 @@ test.describe("timer", () => {
     await expect(page).toHaveTitle("02:59 · Scheduled Timer");
   });
 
-  test("highlights the final minute and shows time's up at zero", async ({ page, timer }) => {
+  test("highlights the final minute, then counts into negative time", async ({ page, timer }) => {
     await timer.open();
     await timer.click(timer.startPause);
 
@@ -61,29 +61,107 @@ test.describe("timer", () => {
     await expect(timer.display).toHaveText("01:00");
     await expect(page.locator("body")).toHaveClass(/final-minute/);
 
-    await timer.jump(MINUTE);
-    await timer.expectState("finished");
+    await timer.jump(MINUTE - SECOND);
+    await expect(timer.display).toHaveText("00:01");
+    await expect(page.locator("body")).not.toHaveClass(/overtime/);
+
+    await timer.advance(SECOND);
+    await timer.expectState("running");
     await expect(timer.display).toHaveText("00:00");
-    await expect(timer.status).toHaveText("Time's up!");
+    await expect(page.locator("body")).toHaveClass(/overtime/);
     await expect(page.locator("body")).not.toHaveClass(/final-minute/);
+
+    await timer.advance(SECOND);
+    await expect(timer.display).toHaveText("-00:01");
+    await expect(page).toHaveTitle("-00:01 · Scheduled Timer");
+  });
+
+  test("keeps counting over time", async ({ timer }) => {
+    await timer.open();
+    await timer.setMinutes(1);
+    await timer.click(timer.startPause);
+    await timer.jump(MINUTE + 5 * MINUTE + 30 * SECOND);
+    await timer.expectState("running");
+    await expect(timer.display).toHaveText("-05:30");
+    await expect(timer.status).toHaveText("");
+  });
+
+  test("shows over time in red", async ({ timer }) => {
+    await timer.open();
+    const before = await timer.display.evaluate((el) => getComputedStyle(el).color);
+    await timer.setMinutes(0.1);
+    await timer.click(timer.startPause);
+    await timer.advance(7 * SECOND);
+    await expect(timer.display).toHaveText("-00:01");
+    await expect(timer.display).not.toHaveCSS("color", before);
+    await expect(timer.display).toHaveCSS("color", "rgb(255, 77, 79)");
+  });
+
+  test("stops an hour over time", async ({ page, timer }) => {
+    await timer.open();
+    await timer.setMinutes(1);
+    await timer.click(timer.startPause);
+
+    await timer.jump(MINUTE + 59 * MINUTE + 58 * SECOND);
+    await expect(timer.display).toHaveText("-59:58");
+    await timer.advance(SECOND);
+    await expect(timer.display).toHaveText("-59:59");
+    await timer.expectState("running");
+
+    await timer.advance(SECOND);
+    await timer.expectState("stopped");
+    await expect(timer.display).toHaveText("-01:00:00");
+    await expect(timer.status).toHaveText("Stopped after an hour over time.");
     await expect(page).toHaveTitle("Scheduled Timer");
+
+    // It no longer counts.
+    await timer.jump(10 * MINUTE);
+    await timer.expectState("stopped");
+    await expect(timer.display).toHaveText("-01:00:00");
   });
 
-  test("stays at 00:00 after finishing", async ({ timer }) => {
+  test("stops an hour over time even when the tab was asleep", async ({ timer }) => {
+    await timer.open();
+    await timer.click(timer.startPause);
+    await timer.jump(3 * 60 * MINUTE);
+    await timer.expectState("stopped");
+    await expect(timer.display).toHaveText("-01:00:00");
+  });
+
+  test("can pause and resume over time", async ({ timer }) => {
     await timer.open();
     await timer.setMinutes(1);
     await timer.click(timer.startPause);
+    await timer.jump(MINUTE + 10 * SECOND);
+    await timer.click(timer.startPause);
+    await timer.expectState("paused");
+    await expect(timer.display).toHaveText("-00:10");
+    await expect(timer.page.locator("body")).toHaveClass(/overtime/);
+
     await timer.jump(5 * MINUTE);
-    await timer.expectState("finished");
-    await expect(timer.display).toHaveText("00:00");
+    await expect(timer.display).toHaveText("-00:10");
+
+    await timer.click(timer.startPause);
+    await timer.advance(5 * SECOND);
+    await expect(timer.display).toHaveText("-00:15");
   });
 
-  test("can restart after finishing", async ({ timer }) => {
+  test("reset clears over time", async ({ page, timer }) => {
+    await timer.open();
+    await timer.click(timer.startPause);
+    await timer.jump(7 * MINUTE);
+    await timer.click(timer.reset);
+    await timer.expectState("idle");
+    await expect(timer.display).toHaveText("05:00");
+    await expect(page.locator("body")).not.toHaveClass(/overtime/);
+  });
+
+  test("can restart after stopping", async ({ timer }) => {
     await timer.open();
     await timer.setMinutes(1);
     await timer.click(timer.startPause);
-    await timer.jump(MINUTE);
-    await timer.expectState("finished");
+    await timer.jump(61 * MINUTE);
+    await timer.expectState("stopped");
 
     await timer.click(timer.startPause);
     await timer.expectState("running");
@@ -144,12 +222,12 @@ test.describe("timer", () => {
     await expect(timer.display).toHaveText("59:59");
   });
 
-  test("changing the duration after finishing goes back to idle", async ({ timer }) => {
+  test("changing the duration after stopping goes back to idle", async ({ timer }) => {
     await timer.open();
     await timer.setMinutes(1);
     await timer.click(timer.startPause);
-    await timer.jump(MINUTE);
-    await timer.expectState("finished");
+    await timer.jump(61 * MINUTE);
+    await timer.expectState("stopped");
 
     await timer.setMinutes(3);
     await timer.expectState("idle");

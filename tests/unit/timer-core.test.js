@@ -12,6 +12,8 @@ import {
   parseTimeInput,
   restoreSchedule,
   scheduleCookieMaxAge,
+  isStopped,
+  MAX_OVERTIME_MS,
   toTimeInputValue,
 } from "../../public/timer-core.js";
 
@@ -109,8 +111,21 @@ describe("formatClock", () => {
     assert.equal(formatClock(0), "00:00");
   });
 
-  it("clamps negative values to 00:00", () => {
-    assert.equal(formatClock(-5 * SECOND), "00:00");
+  it("keeps 00:00 for the first second over time", () => {
+    assert.equal(formatClock(-1), "00:00");
+    assert.equal(formatClock(-999), "00:00");
+  });
+
+  it("shows over time as negative", () => {
+    assert.equal(formatClock(-SECOND), "-00:01");
+    assert.equal(formatClock(-5 * SECOND - 1), "-00:05");
+    assert.equal(formatClock(-(MINUTE + 5 * SECOND)), "-01:05");
+    assert.equal(formatClock(-(59 * MINUTE + 59 * SECOND)), "-59:59");
+  });
+
+  it("shows an hour or more over time as -hh:mm:ss", () => {
+    assert.equal(formatClock(-HOUR), "-01:00:00");
+    assert.equal(formatClock(-(2 * HOUR + 3 * SECOND)), "-02:00:03");
   });
 
   it("uses mm:ss under an hour", () => {
@@ -233,13 +248,13 @@ describe("parseCookie", () => {
 describe("scheduleCookieMaxAge", () => {
   const now = local(2026, 10, 28, 10, 0).getTime();
 
-  it("lasts until a minute after the timer would end", () => {
+  it("lasts until a minute after the timer would stop, an hour over time", () => {
     const start = now + 30 * MINUTE;
-    assert.equal(scheduleCookieMaxAge(start, 5 * MINUTE, now), 35 * 60 + 60);
+    assert.equal(scheduleCookieMaxAge(start, 5 * MINUTE, now), (35 + 60) * 60 + 60);
   });
 
   it("is never less than a minute", () => {
-    assert.equal(scheduleCookieMaxAge(now - HOUR, 5 * MINUTE, now), 60);
+    assert.equal(scheduleCookieMaxAge(now - 3 * HOUR, 5 * MINUTE, now), 60);
   });
 });
 
@@ -281,8 +296,20 @@ describe("restoreSchedule", () => {
     assert.deepEqual(restoreSchedule(String(now), duration, now), { mode: "running", endTime: now + duration });
   });
 
-  it("discards a timer that has already finished", () => {
-    assert.deepEqual(restoreSchedule(String(now - duration), duration, now), { mode: "none", stale: true });
+  it("resumes a timer that is over time", () => {
+    const start = now - duration - 10 * MINUTE;
+    assert.deepEqual(restoreSchedule(String(start), duration, now), { mode: "running", endTime: start + duration });
+  });
+
+  it("resumes a timer that reached zero exactly now", () => {
+    const start = now - duration;
+    assert.deepEqual(restoreSchedule(String(start), duration, now), { mode: "running", endTime: now });
+  });
+
+  it("discards a timer that has stopped an hour over time", () => {
+    const stoppedNow = now - duration - MAX_OVERTIME_MS;
+    assert.deepEqual(restoreSchedule(String(stoppedNow), duration, now), { mode: "none", stale: true });
+    assert.equal(restoreSchedule(String(stoppedNow + 1), duration, now).mode, "running");
     assert.deepEqual(restoreSchedule(String(now - DAY_MS), duration, now), { mode: "none", stale: true });
   });
 
@@ -290,5 +317,20 @@ describe("restoreSchedule", () => {
     for (const value of ["abc", "0", "-5", "NaN", "Infinity"]) {
       assert.deepEqual(restoreSchedule(value, duration, now), { mode: "none", stale: true }, value);
     }
+  });
+});
+
+describe("isStopped", () => {
+  it("keeps counting until an hour over time", () => {
+    assert.equal(isStopped(5 * MINUTE), false);
+    assert.equal(isStopped(0), false);
+    assert.equal(isStopped(-30 * MINUTE), false);
+    assert.equal(isStopped(-MAX_OVERTIME_MS + 1), false);
+  });
+
+  it("stops at an hour over time", () => {
+    assert.equal(MAX_OVERTIME_MS, HOUR);
+    assert.equal(isStopped(-HOUR), true);
+    assert.equal(isStopped(-2 * HOUR), true);
   });
 });

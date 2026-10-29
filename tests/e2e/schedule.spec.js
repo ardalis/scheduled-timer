@@ -25,8 +25,8 @@ test.describe("schedule", () => {
     expect(Number(cookie.value)).toBe(MORNING.getTime() + 30 * MINUTE);
     expect(cookie.path).toBe("/");
     expect(cookie.sameSite).toBe("Lax");
-    // Real-time expiry: after the timer would have ended, plus a minute of slack.
-    expect(cookie.expires).toBeGreaterThan(Date.now() / 1000 + 34 * 60);
+    // Real-time expiry: after the timer would have stopped (an hour over time), plus a minute of slack.
+    expect(cookie.expires).toBeGreaterThan(Date.now() / 1000 + (35 + 60) * 60);
   });
 
   test("schedules an earlier time for tomorrow", async ({ timer }) => {
@@ -91,12 +91,21 @@ test.describe("schedule", () => {
     await expect(timer.display).toHaveText("03:00");
   });
 
-  test("finishes immediately if the whole timer elapsed while the tab was asleep", async ({ timer }) => {
+  test("is over time if the whole timer elapsed while the tab was asleep", async ({ timer }) => {
     await timer.open();
     await timer.scheduleAt("10:01");
     await timer.jump(10 * MINUTE);
-    await timer.expectState("finished");
-    await expect(timer.display).toHaveText("00:00");
+    await timer.expectState("running");
+    await expect(timer.display).toHaveText("-04:00");
+  });
+
+  test("is stopped if the timer and its hour over time passed while the tab was asleep", async ({ timer }) => {
+    await timer.open();
+    await timer.scheduleAt("10:01");
+    await timer.jump(2 * HOUR);
+    await timer.expectState("stopped");
+    await expect(timer.display).toHaveText("-01:00:00");
+    expect(await timer.cookie("scheduledStart")).toBeNull();
   });
 
   test("uses the duration set after scheduling", async ({ timer }) => {
@@ -183,11 +192,22 @@ test.describe("schedule", () => {
       await expect(timer.display).toHaveText("03:00");
     });
 
-    test("is idle once the scheduled timer has finished", async ({ page, timer }) => {
+    test("resumes over time", async ({ page, timer }) => {
       await timer.open();
       await timer.scheduleAt("10:01");
-      await timer.jump(7 * MINUTE);
-      await timer.expectState("finished");
+      await timer.jump(16 * MINUTE);
+      await expect(timer.display).toHaveText("-10:00");
+
+      await page.reload();
+      await timer.expectState("running");
+      await expect(timer.display).toHaveText("-10:00");
+    });
+
+    test("is idle once the scheduled timer has stopped", async ({ page, timer }) => {
+      await timer.open();
+      await timer.scheduleAt("10:01");
+      await timer.jump(5 * MINUTE + 61 * MINUTE);
+      await timer.expectState("stopped");
       expect(await timer.cookie("scheduledStart")).toBeNull();
 
       await page.reload();
@@ -212,7 +232,8 @@ test.describe("schedule", () => {
       page.context().addCookies([{ name: "scheduledStart", value: String(value), url: page.url() }]);
 
     for (const [label, value] of [
-      ["in the past", MORNING.getTime() - HOUR],
+      ["whose timer stopped (an hour over time)", MORNING.getTime() - 5 * MINUTE - HOUR],
+      ["long in the past", MORNING.getTime() - 3 * HOUR],
       ["more than a day ahead", MORNING.getTime() + 26 * HOUR],
       ["that is not a number", "soon"],
     ]) {

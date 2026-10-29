@@ -73,15 +73,8 @@ body.final-minute .display {
   color: var(--warn);
 }
 
-body[data-state="finished"] .display {
+body.overtime .display {
   color: var(--done);
-  animation: blink 1s steps(2, start) infinite;
-}
-
-@keyframes blink {
-  to {
-    visibility: hidden;
-  }
 }
 
 .controls {

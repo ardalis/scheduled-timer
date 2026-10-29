@@ -152,7 +152,7 @@ test.describe("configuration", () => {
     await expect(timer.display).toHaveText("15:00");
     // The schedule cookie now lasts for the longer timer.
     const cookie = await timer.cookie("scheduledStart");
-    expect(cookie.expires).toBeGreaterThan(Date.now() / 1000 + 44 * 60);
+    expect(cookie.expires).toBeGreaterThan(Date.now() / 1000 + (45 + 60) * 60);
 
     await timer.jump(30 * MINUTE);
     await timer.expectState("running");
