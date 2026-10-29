@@ -46,7 +46,11 @@ export class TimerPage {
     this.startTime = page.locator("#start-time");
     this.scheduleButton = page.getByRole("button", { name: "Schedule", exact: true });
     this.cancelSchedule = page.getByRole("button", { name: "Cancel schedule" });
-    this.duration = page.locator("#duration");
+    this.configButton = page.getByRole("button", { name: "Configuration" });
+    this.configDialog = page.locator("#config-dialog");
+    this.configDuration = page.getByLabel("Timer duration (minutes)");
+    this.configSave = this.configDialog.getByRole("button", { name: "Save" });
+    this.configCancel = this.configDialog.getByRole("button", { name: "Cancel" });
     this.startPause = page.locator("#start-pause");
     this.reset = page.getByRole("button", { name: "Reset" });
     this.fullscreen = page.locator("#fullscreen");
@@ -71,9 +75,26 @@ export class TimerPage {
     await this.click(this.scheduleButton);
   }
 
+  async openConfig() {
+    await this.click(this.configButton);
+    await expect(this.configDialog).toBeVisible();
+  }
+
+  /** Sets the timer duration through the configuration dialog. */
   async setMinutes(minutes) {
-    await this.duration.fill(String(minutes));
-    await this.duration.dispatchEvent("change");
+    await this.openConfig();
+    await this.configDuration.fill(String(minutes));
+    await this.configSave.click();
+    await expect(this.configDialog).toBeHidden();
+  }
+
+  async storedConfig() {
+    return this.page.evaluate(() => JSON.parse(localStorage.getItem("scheduled-timer:config")));
+  }
+
+  /** Writes config straight to storage, as a previous visit would have. */
+  async storeConfig(config) {
+    await this.page.evaluate((value) => localStorage.setItem("scheduled-timer:config", JSON.stringify(value)), config);
   }
 
   /** Advances the fake clock, firing every timer along the way. */

@@ -40,7 +40,11 @@ body {
 }
 
 .display {
-  font-size: min(36vw, 72vh);
+  /* Sized so the readout fits the width whatever its length (set from JS). */
+  --chars: 5;
+  max-width: 100%;
+  font-size: min(calc(150vw / (var(--chars) + 0.4)), 70vh);
+  white-space: nowrap;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -99,7 +103,8 @@ body[data-state="finished"] .display {
   transition: opacity 0.4s;
 }
 
-body.controls-hidden .controls {
+body.controls-hidden .controls,
+body.controls-hidden .config-button {
   opacity: 0;
   pointer-events: none;
 }
@@ -144,11 +149,85 @@ button:focus-visible {
   border-color: var(--accent);
 }
 
-button[type="submit"] {
+button[type="submit"],
+button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #001826;
   font-weight: 600;
+}
+
+.config-button {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  transition: opacity 0.4s, color 0.2s;
+}
+
+.config-button:hover,
+.config-button:focus-visible {
+  color: var(--fg);
+}
+
+.config-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  color: var(--fg);
+  background: #161a20;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.config-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.config-dialog h2 {
+  margin: 0 0 1.25rem;
+  font-size: 1.4rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+}
+
+.field input {
+  width: 100%;
+}
+
+.hint,
+.error {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--done);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--done);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 [hidden] {

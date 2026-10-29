@@ -8,6 +8,13 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body data-state="idle">
+  <button type="button" id="config-button" class="config-button" aria-label="Configuration" title="Configuration"
+    aria-haspopup="dialog" aria-controls="config-dialog">
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M19.14 12.94a7.07 7.07 0 0 0 .06-.94 7.07 7.07 0 0 0-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.62l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.4h-3.84a.48.48 0 0 0-.48.4l-.36 2.54a7.3 7.3 0 0 0-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.73 8.86a.48.48 0 0 0 .12.62l2.03 1.58a7.4 7.4 0 0 0 0 1.88l-2.03 1.58a.49.49 0 0 0-.12.62l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.05.24.25.4.48.4h3.84c.24 0 .44-.16.48-.4l.36-2.54a7 7 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.62zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/>
+    </svg>
+  </button>
+
   <main class="stage">
     <p id="status" class="status" aria-live="polite"></p>
     <div id="display" class="display" role="timer" aria-live="off">05:00</div>
@@ -22,13 +29,35 @@
     </form>
 
     <div class="group">
-      <label for="duration">Minutes</label>
-      <input id="duration" type="number" min="1" max="999" step="1" value="5">
       <button type="button" id="start-pause">Start now</button>
       <button type="button" id="reset">Reset</button>
       <button type="button" id="fullscreen" title="Toggle full screen (F)">Full screen</button>
     </div>
   </section>
+
+  <dialog id="config-dialog" class="config-dialog" aria-labelledby="config-title">
+    <form id="config-form" method="dialog" novalidate>
+      <h2 id="config-title">Configuration</h2>
+
+      <div class="field">
+        <label for="config-duration">Timer duration (minutes)</label>
+        <input id="config-duration" name="durationMinutes" type="number" min="0.0167" max="1440" step="any"
+          inputmode="decimal" required aria-describedby="config-duration-hint config-duration-error">
+        <p id="config-duration-hint" class="hint">Any number of minutes, e.g. 20 or 7.5.</p>
+        <p id="config-duration-error" class="error" role="alert" hidden></p>
+        <p id="config-duration-pending" class="hint" hidden>The new duration applies when the current timer is reset.</p>
+      </div>
+
+      <p id="config-storage-error" class="error" role="alert" hidden>
+        Settings couldn't be saved in this browser, so they will be lost on reload.
+      </p>
+
+      <div class="dialog-actions">
+        <button type="button" id="config-cancel" value="cancel">Cancel</button>
+        <button type="submit" id="config-save" value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="app.js"></script>
 </body>

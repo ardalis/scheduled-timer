@@ -18,7 +18,8 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 
 ## Features
 
-- Full-screen `mm:ss` countdown in a large font (defaults to 5 minutes).
+- Full-screen countdown in a large font (defaults to 5 minutes), shown as `mm:ss`, or `hh:mm:ss` for an hour or more.
+- Configuration (the gear icon, top right) sets the timer duration to any number of minutes. Settings are saved in browser storage (`localStorage`).
 - Pick a start time; it's scheduled for the next occurrence of that local time within 24 hours.
 - Before the start, shows "Timer will begin in (timespan)." in natural units.
 - The scheduled start is stored in a cookie, so reloading the page keeps (or resumes) the timer.
@@ -59,8 +60,8 @@ npm test
 
 `npm test` runs, in order:
 
-- **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule). Prints unit coverage.
-- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, reloads, keyboard shortcuts, and auto-hiding controls.
+- **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule) and the configuration storage in `public/config.js`. Prints unit coverage.
+- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, configuration, reloads, keyboard shortcuts, and auto-hiding controls.
 - **Coverage** (`npm run coverage`): merges V8 coverage from both suites and prints a combined report for `public/`. HTML and `lcov.info` reports are written to `coverage/`.
 
 Each step can also be run on its own. CI runs `npm test` on every push to `main` and on pull requests.

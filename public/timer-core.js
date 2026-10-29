@@ -1,8 +1,6 @@
 // Pure timer logic with no DOM access, shared by app.js and the unit tests.
 
 export const DEFAULT_MINUTES = 5;
-export const MIN_MINUTES = 1;
-export const MAX_MINUTES = 999;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 // The next occurrence of a time is at most 24 hours away, except across a
 // daylight saving "fall back" day, which has an extra hour.
@@ -29,12 +27,13 @@ export function nextOccurrence(hours, minutes, now = new Date()) {
   return target;
 }
 
-/** mm:ss, where minutes may exceed 59 for long timers. */
+/** mm:ss under an hour, hh:mm:ss from an hour up. */
 export function formatClock(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(totalSeconds / 60);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
-  return `${pad2(m)}:${pad2(s)}`;
+  return h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
 }
 
 /** Natural-language span, e.g. "2 hours and 5 minutes" or "45 seconds". */
@@ -52,13 +51,6 @@ export function formatTimespan(ms) {
   if (!hours && seconds) parts.push(unit(seconds, "second"));
   if (!parts.length) return "less than a second";
   return parts.length === 1 ? parts[0] : `${parts[0]} and ${parts[1]}`;
-}
-
-/** Whole minutes within [MIN_MINUTES, MAX_MINUTES]; invalid input falls back to the default. */
-export function clampMinutes(value) {
-  const n = Number(value);
-  if (!n || !Number.isFinite(n)) return DEFAULT_MINUTES;
-  return Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(n)));
 }
 
 /** Parses an `<input type="time">` value ("HH:MM" or "HH:MM:SS"). Returns null if invalid. */

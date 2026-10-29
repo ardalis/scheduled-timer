@@ -238,7 +238,7 @@ test.describe("schedule", () => {
 
     test("uses the saved duration when resuming", async ({ page, timer }) => {
       await timer.open();
-      await page.context().addCookies([{ name: "timerMinutes", value: "10", url: page.url() }]);
+      await timer.storeConfig({ durationMinutes: 10 });
       await setSchedule(page, MORNING.getTime() - 7 * MINUTE);
       await page.reload();
 
