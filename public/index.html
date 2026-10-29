@@ -146,6 +146,19 @@
         </div>
       </div>
 
+      <section class="field" id="style-effects-field" aria-labelledby="style-effects-heading">
+        <div class="section-header">
+          <h3 id="style-effects-heading">Effects</h3>
+          <div class="inline">
+            <select id="effect-type" aria-label="Effect type"></select>
+            <button type="button" id="add-effect">Add effect</button>
+          </div>
+        </div>
+        <p class="hint">Each effect starts a number of seconds after the style begins.</p>
+        <ul id="effect-list" class="effect-list" aria-labelledby="style-effects-heading"></ul>
+        <p id="effect-error" class="error" role="alert" hidden></p>
+      </section>
+
       <div class="dialog-actions">
         <span id="style-delete-wrap" class="delete-wrap">
           <button type="button" id="style-delete" class="danger">

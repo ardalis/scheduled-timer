@@ -16,6 +16,7 @@ import {
   startMinutes,
   styleToCss,
 } from "./styles-core.js";
+import { EFFECT_TYPES, MAX_EFFECT_SECONDS, describeEffect, newEffect, parseEffectSeconds } from "./effects-core.js";
 
 const BUILT_IN_DELETE_TOOLTIP = "Built-in styles cannot be deleted.";
 
@@ -55,6 +56,11 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     sizeValue: $("style-size-value"),
     shadow: $("style-shadow"),
     enabled: $("style-enabled"),
+    effectsField: $("style-effects-field"),
+    effectType: $("effect-type"),
+    addEffect: $("add-effect"),
+    effectList: $("effect-list"),
+    effectError: $("effect-error"),
     deleteWrap: $("style-delete-wrap"),
     deleteButton: $("style-delete"),
     cancel: $("style-cancel"),
@@ -62,6 +68,7 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
 
   for (const [value, { label }] of Object.entries(FONTS)) els.font.add(new Option(label, value));
   for (const [value, label] of Object.entries(WEIGHTS)) els.weight.add(new Option(label, value));
+  for (const [value, { label }] of Object.entries(EFFECT_TYPES)) els.effectType.add(new Option(label, value));
 
   let editing = null; // working copy of the style in the dialog
   let isNew = false;
@@ -117,6 +124,101 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     );
   }
 
+  // ---- Effects -------------------------------------------------------------
+
+  function secondsInput(className, label, value) {
+    const wrap = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.max = String(MAX_EFFECT_SECONDS);
+    input.step = "1";
+    input.inputMode = "numeric";
+    input.className = className;
+    input.value = String(value);
+    wrap.append(label, input, "s");
+    return wrap;
+  }
+
+  function renderEffects() {
+    els.effectList.replaceChildren(
+      ...editing.effects.map((effect) => {
+        const { label, hasDuration } = EFFECT_TYPES[effect.type];
+        const item = document.createElement("li");
+        item.className = "effect-item";
+        item.dataset.effectId = effect.id;
+        item.classList.toggle("is-disabled", !effect.enabled);
+
+        const name = document.createElement("span");
+        name.className = "effect-name";
+        name.textContent = describeEffect(effect);
+
+        const toggleLabel = document.createElement("label");
+        toggleLabel.className = "checkbox";
+        const toggle = document.createElement("input");
+        toggle.type = "checkbox";
+        toggle.className = "effect-enabled";
+        toggle.checked = effect.enabled;
+        toggle.setAttribute("aria-label", `Enable ${label}`);
+        toggleLabel.append(toggle, " Enabled");
+
+        const start = secondsInput("effect-start", "Starts after", effect.startSeconds);
+        start.querySelector("input").setAttribute("aria-label", `${label} starts after (seconds)`);
+        item.append(name, toggleLabel, start);
+
+        if (hasDuration) {
+          const duration = secondsInput("effect-duration", "Lasts", effect.durationSeconds);
+          const input = duration.querySelector("input");
+          input.setAttribute("aria-label", `${label} lasts (seconds, 0 until the style ends)`);
+          input.title = "0 lasts until the style ends";
+          item.append(duration);
+        }
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove-effect danger";
+        remove.textContent = "Remove";
+        remove.setAttribute("aria-label", `Remove ${label}`);
+        remove.addEventListener("click", () => {
+          editing.effects = editing.effects.filter((e) => e.id !== effect.id);
+          renderEffects();
+          els.effectError.hidden = true;
+        });
+        item.append(remove);
+        return item;
+      })
+    );
+  }
+
+  /** Reads each effect's inputs into the working copy. Returns false if any are invalid. */
+  function readEffects() {
+    let valid = true;
+    editing.effects = editing.effects.map((effect) => {
+      const item = els.effectList.querySelector(`[data-effect-id="${CSS.escape(effect.id)}"]`);
+      if (!item) return effect;
+      const next = { ...effect, enabled: item.querySelector(".effect-enabled").checked };
+      for (const [className, key] of [["effect-start", "startSeconds"], ["effect-duration", "durationSeconds"]]) {
+        const input = item.querySelector(`.${className}`);
+        if (!input) continue;
+        const seconds = parseEffectSeconds(input.value);
+        input.setAttribute("aria-invalid", seconds === null ? "true" : "false");
+        if (seconds === null) valid = false;
+        else next[key] = seconds;
+      }
+      item.classList.toggle("is-disabled", !next.enabled);
+      item.querySelector(".effect-name").textContent = describeEffect(next);
+      return next;
+    });
+    return valid;
+  }
+
+  els.addEffect.addEventListener("click", () => {
+    readEffects();
+    editing.effects = [...editing.effects, newEffect(`effect-${crypto.randomUUID()}`, els.effectType.value)];
+    renderEffects();
+    els.effectList.lastElementChild?.querySelector(".effect-start")?.focus();
+  });
+
   // ---- Editor --------------------------------------------------------------
 
   function showError(input, errorEl, message) {
@@ -163,6 +265,9 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     editing.sizePercent = Number(els.size.value);
     editing.shadow = els.shadow.checked;
     editing.enabled = els.enabled.checked;
+    if (editing.start !== null && !readEffects()) {
+      errors.effects = `Enter whole seconds from 0 to ${MAX_EFFECT_SECONDS}.`;
+    }
     return errors;
   }
 
@@ -189,6 +294,9 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     const hasStart = editing.start !== null;
     els.startField.hidden = !hasStart;
     els.fallbackHint.hidden = hasStart;
+    // Effects are timed from the start of a style, which the fallback doesn't have.
+    els.effectsField.hidden = !hasStart;
+    renderEffects();
     if (hasStart && editing.start.expression !== undefined) {
       els.start.value = editing.start.expression;
       els.plusDuration.checked = false;
@@ -209,6 +317,7 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     els.deleteButton.setAttribute("aria-description", editing.builtIn ? BUILT_IN_DELETE_TOOLTIP : "");
     showError(els.name, els.nameError, "");
     showError(els.start, els.startError, "");
+    els.effectError.hidden = true;
 
     updatePreview();
     els.dialog.showModal();
@@ -219,6 +328,9 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     if (event.target === els.name) showError(els.name, els.nameError, "");
     if (event.target === els.start || event.target === els.plusDuration) showError(els.start, els.startError, "");
     updatePreview();
+    if (els.effectList.contains(event.target) && !els.effectList.querySelector('[aria-invalid="true"]')) {
+      els.effectError.hidden = true;
+    }
   });
 
   els.form.addEventListener("submit", (event) => {
@@ -226,8 +338,12 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     const errors = readForm();
     showError(els.name, els.nameError, errors.name ?? "");
     showError(els.start, els.startError, errors.start ?? "");
-    if (errors.name || errors.start) {
-      (errors.name ? els.name : els.start).focus();
+    els.effectError.textContent = errors.effects ?? "";
+    els.effectError.hidden = !errors.effects;
+    if (errors.name || errors.start || errors.effects) {
+      if (errors.name) els.name.focus();
+      else if (errors.start) els.start.focus();
+      else els.effectList.querySelector('[aria-invalid="true"]')?.focus();
       return;
     }
     const styles = getStyles();
