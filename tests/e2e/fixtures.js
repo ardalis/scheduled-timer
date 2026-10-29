@@ -48,7 +48,7 @@ export class TimerPage {
     this.cancelSchedule = page.getByRole("button", { name: "Cancel schedule" });
     this.configButton = page.getByRole("button", { name: "Configuration" });
     this.configDialog = page.locator("#config-dialog");
-    this.configDuration = page.getByLabel("Timer duration (minutes)");
+    this.configDuration = page.getByLabel("Presentation duration (minutes)");
     this.configSave = this.configDialog.getByRole("button", { name: "Save", exact: true });
     this.configCancel = this.configDialog.getByRole("button", { name: "Cancel", exact: true });
     this.themeSelect = page.getByRole("combobox", { name: "Theme", exact: true });
@@ -67,7 +67,7 @@ export class TimerPage {
     this.stylePreview = page.locator("#style-preview");
     this.styleName = this.styleDialog.getByLabel("Name");
     this.styleStart = this.styleDialog.getByLabel("Starts at (minutes from zero)");
-    this.stylePlusDuration = this.styleDialog.getByLabel("plus the timer duration");
+    this.stylePlusDuration = this.styleDialog.getByLabel("plus the presentation duration");
     this.styleBackground = this.styleDialog.getByLabel("Background");
     this.styleColor = this.styleDialog.getByLabel("Text color");
     this.styleFont = this.styleDialog.getByLabel("Font");
@@ -110,7 +110,7 @@ export class TimerPage {
     await expect(this.configDialog).toBeVisible();
   }
 
-  /** Sets the timer duration through the configuration dialog. */
+  /** Sets the presentation duration through the configuration dialog. */
   async setMinutes(minutes) {
     await this.openConfig();
     await this.configDuration.fill(String(minutes));
