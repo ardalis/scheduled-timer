@@ -3,6 +3,8 @@ import {
   defaultStartTimeValue,
   formatClock,
   formatTimespan,
+  isStopped,
+  MAX_OVERTIME_MS,
   nextOccurrence,
   parseCookie,
   parseTimeInput,
@@ -74,9 +76,9 @@ function formatLocalTime(date) {
 // ---- State ---------------------------------------------------------------
 // idle:     nothing scheduled, timer at full duration
 // waiting:  scheduled start in the future
-// running:  counting down toward endTime
-// paused:   stopped with `remaining` left
-// finished: reached 00:00
+// running:  counting down toward endTime, then into negative (over time)
+// paused:   stopped with `remaining` left (negative if paused over time)
+// stopped:  an hour over time; the timer no longer counts
 
 const state = {
   mode: "idle",
@@ -94,9 +96,9 @@ function setMode(mode) {
 
 function setDurationMinutes(minutes) {
   state.durationMs = Math.round(minutes * 60 * 1000);
-  if (state.mode === "idle" || state.mode === "waiting" || state.mode === "finished") {
+  if (state.mode === "idle" || state.mode === "waiting" || state.mode === "stopped") {
     state.remaining = state.durationMs;
-    if (state.mode === "finished") setMode("idle");
+    if (state.mode === "stopped") setMode("idle");
   }
 }
 
@@ -121,7 +123,7 @@ function start(endTime = Date.now() + state.remaining) {
 
 function pause() {
   clearSchedule();
-  state.remaining = Math.max(0, state.endTime - Date.now());
+  state.remaining = Math.max(-MAX_OVERTIME_MS, state.endTime - Date.now());
   state.endTime = null;
   setMode("paused");
 }
@@ -136,7 +138,7 @@ function reset() {
 // ---- Rendering -----------------------------------------------------------
 
 function currentRemaining(now) {
-  return state.mode === "running" ? Math.max(0, state.endTime - now) : state.remaining;
+  return state.mode === "running" ? Math.max(-MAX_OVERTIME_MS, state.endTime - now) : state.remaining;
 }
 
 function render() {
@@ -147,20 +149,22 @@ function render() {
     els.display.textContent = clock;
     els.display.style.setProperty("--chars", clock.length);
   }
-  document.title = state.mode === "running" ? `${clock} · Scheduled Timer` : "Scheduled Timer";
+  document.title = state.mode === "running" || state.mode === "paused" ? `${clock} · Scheduled Timer` : "Scheduled Timer";
 
   els.body.classList.toggle(
     "final-minute",
-    state.mode === "running" && remaining <= 60 * 1000
+    state.mode === "running" && remaining <= 60 * 1000 && remaining > 0
   );
+  // Over time once the clock reads 00:00 or less.
+  els.body.classList.toggle("overtime", state.mode !== "idle" && state.mode !== "waiting" && remaining <= 0);
 
   let status = "";
   if (state.mode === "waiting") {
     status = `Timer will begin in ${formatTimespan(state.scheduledStart - now)}.`;
   } else if (state.mode === "paused") {
     status = "Paused";
-  } else if (state.mode === "finished") {
-    status = "Time's up!";
+  } else if (state.mode === "stopped") {
+    status = "Stopped after an hour over time.";
   }
   if (els.status.textContent !== status) els.status.textContent = status;
 
@@ -171,27 +175,29 @@ function render() {
     state.mode === "waiting" ? `Scheduled for ${formatLocalTime(new Date(state.scheduledStart))}` : "";
 }
 
+function stop() {
+  clearSchedule();
+  state.remaining = -MAX_OVERTIME_MS;
+  state.endTime = null;
+  setMode("stopped");
+}
+
 function tick() {
   const now = Date.now();
   if (state.mode === "waiting" && now >= state.scheduledStart) {
     // Anchor the end to the scheduled start so the timer stays accurate even
     // if the tab was throttled in the background.
     const endTime = state.scheduledStart + state.durationMs;
-    if (endTime > now) {
-      // The cookie is kept (it expires after the timer ends) so a reload resumes.
+    if (isStopped(endTime - now)) {
+      // The whole timer, and the hour after it, passed while the tab was asleep.
+      stop();
+    } else {
+      // The cookie is kept (it expires after the timer stops) so a reload resumes.
       state.scheduledStart = null;
       start(endTime);
-    } else {
-      // The whole timer elapsed while the tab was asleep.
-      clearSchedule();
-      state.remaining = 0;
-      setMode("finished");
     }
-  } else if (state.mode === "running" && now >= state.endTime) {
-    clearSchedule();
-    state.remaining = 0;
-    state.endTime = null;
-    setMode("finished");
+  } else if (state.mode === "running" && isStopped(state.endTime - now)) {
+    stop();
   }
   render();
 }
@@ -261,7 +267,7 @@ els.startPause.addEventListener("click", () => {
     pause();
   } else {
     if (state.mode === "waiting") clearSchedule();
-    if (state.mode === "finished") state.remaining = state.durationMs;
+    if (state.mode === "stopped") state.remaining = state.durationMs;
     start();
   }
 });

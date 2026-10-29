@@ -19,6 +19,7 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 ## Features
 
 - Full-screen countdown in a large font (defaults to 5 minutes), shown as `mm:ss`, or `hh:mm:ss` for an hour or more.
+- At zero it keeps counting over time as a negative number (`-00:01`, `-00:02`, …), and stops once it's an hour over.
 - Configuration (the gear icon, top right) sets the timer duration to any number of minutes. Settings are saved in browser storage (`localStorage`).
 - Pick a start time; it's scheduled for the next occurrence of that local time within 24 hours.
 - Before the start, shows "Timer will begin in (timespan)." in natural units.
