@@ -6,10 +6,13 @@ import {
   MAX_START_MINUTES,
   defaultStyles,
   describeStart,
+  evaluateStartExpression,
   isHexColor,
+  isStartExpression,
   newCustomStyle,
   normalizeStyle,
   normalizeStyles,
+  parseStartExpression,
   parseStartMinutes,
   parseStyleName,
   resolveStyle,
@@ -331,5 +334,67 @@ describe("styleToCss", () => {
     assert.notEqual(css["--style-shadow"], "none");
     assert.equal(styleToCss({ ...defaultStyles()[2], sizePercent: 50 })["--style-scale"], "0.5");
     assert.equal(styleToCss(defaultStyles()[2])["--style-shadow"], "none");
+  });
+});
+
+describe("start expressions", () => {
+  const expr = (id, expression, extra = {}) => ({ ...custom(id, 1), start: { expression }, ...extra });
+
+  it("recognizes text that mentions the duration", () => {
+    assert.equal(isStartExpression("$duration / 10"), true);
+    assert.equal(isStartExpression("Duration-1"), true);
+    assert.equal(isStartExpression("5"), false);
+    assert.equal(isStartExpression(null), false);
+  });
+
+  it("parses and tidies valid expressions", () => {
+    assert.equal(parseStartExpression("  $duration   /  10 "), "$duration / 10");
+    for (const value of ["$duration", "duration-5", "($duration - 5) * 2", "-$duration / 4", "$duration*.5", "+$duration"]) {
+      assert.equal(typeof parseStartExpression(value), "string", value);
+    }
+  });
+
+  it("rejects invalid expressions", () => {
+    const invalid = ["", "5", "$duration +", "$duration $duration", "($duration", "$duration)", "$durationx", "$time", "alert(1)",
+      "$duration ** 2", "$duration % 2", `$duration + ${"1".repeat(60)}`, null, 3];
+    for (const value of invalid) assert.equal(parseStartExpression(value), null, String(value));
+  });
+
+  it("evaluates with operator precedence, rounded to the second", () => {
+    assert.equal(evaluateStartExpression("$duration / 10", 30), 3);
+    assert.equal(evaluateStartExpression("$duration - 5", 30), 25);
+    assert.equal(evaluateStartExpression("$duration - 2 * 3", 30), 24);
+    assert.equal(evaluateStartExpression("($duration - 2) * 3", 30), 84);
+    assert.equal(evaluateStartExpression("-$duration / 4", 20), -5);
+    assert.equal(evaluateStartExpression("$duration / 7", 1), Math.round((60 / 7)) / 60);
+    assert.ok(Number.isNaN(evaluateStartExpression("$duration / ($duration - 5)", 5)));
+    assert.ok(Number.isNaN(evaluateStartExpression("nonsense", 5)));
+  });
+
+  it("keeps a valid expression when normalizing, and falls back otherwise", () => {
+    const base = newCustomStyle("x", 2);
+    assert.deepEqual(normalizeStyle({ start: { expression: " $duration/2 " } }, base).start, { expression: "$duration/2" });
+    assert.deepEqual(normalizeStyle({ start: { expression: "5" } }, base).start, base.start);
+    assert.deepEqual(normalizeStyle({ start: { expression: 5 } }, base).start, base.start);
+  });
+
+  it("starts styles relative to the duration", () => {
+    const styles = [...defaultStyles(), expr("wrap-up", "$duration / 10")];
+    // A 30 minute talk wraps up 3 minutes from the end; a 10 minute talk, 1 minute.
+    assert.equal(resolvedId(styles, 3 * MINUTE, 30), "wrap-up");
+    assert.equal(resolvedId(styles, 3 * MINUTE + SECOND, 30), "active");
+    assert.equal(resolvedId(styles, 1 * MINUTE, 10), "wrap-up");
+    assert.equal(resolvedId(styles, 2 * MINUTE, 10), "active");
+  });
+
+  it("ignores a style whose expression has no value", () => {
+    const styles = [...defaultStyles(), expr("broken", "$duration / ($duration - 5)")];
+    assert.equal(resolvedId(styles, 2 * MINUTE, 5), "active");
+    assert.deepEqual(sortStylesForDisplay(styles, 5).map((s) => s.id).at(-1), "broken");
+  });
+
+  it("describes an expression start", () => {
+    assert.equal(describeStart(expr("x", "$duration / 10"), 30), "3 min ($duration / 10)");
+    assert.equal(describeStart(expr("x", "$duration / ($duration - 5)"), 5), "Undefined ($duration / ($duration - 5))");
   });
 });

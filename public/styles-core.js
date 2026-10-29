@@ -10,6 +10,10 @@
 //
 // The Inactive style has no start; it applies whenever no other style does
 // (idle, a start far away, or past every negative style).
+//
+// A start is either { minutes, plusDuration } or { expression }, an
+// arithmetic expression of the presentation duration such as
+// "$duration / 10" (see parseStartExpression).
 
 const MINUTE = 60 * 1000;
 
@@ -127,9 +131,122 @@ export function parseStartMinutes(value) {
   return Math.round(minutes * 60) / 60;
 }
 
+// ---- Start expressions -----------------------------------------------------
+// Numbers, $duration (the presentation duration in minutes), + - * /, and
+// parentheses. "duration" without the $ is accepted too.
+
+export const MAX_EXPRESSION_LENGTH = 60;
+const DURATION_VARIABLE = /\$?duration\b/i;
+const TOKEN = /\s*(?:(\d+(?:\.\d+)?|\.\d+)|(\$?duration)\b|([-+*/()]))/iy;
+
+/** Whether text is meant as an expression (it mentions the duration) rather than plain minutes. */
+export function isStartExpression(value) {
+  return typeof value === "string" && DURATION_VARIABLE.test(value);
+}
+
+function tokenize(value) {
+  const text = value.trim();
+  const tokens = [];
+  TOKEN.lastIndex = 0;
+  while (TOKEN.lastIndex < text.length) {
+    const match = TOKEN.exec(text);
+    if (!match) return null;
+    if (match[1] !== undefined) tokens.push({ number: Number(match[1]) });
+    else if (match[2] !== undefined) tokens.push({ duration: true });
+    else tokens.push({ op: match[3] });
+  }
+  return tokens;
+}
+
+/**
+ * Compiles an expression into a function of the duration (minutes), or
+ * returns null if it isn't valid. A recursive descent parser, so nothing is
+ * ever passed to eval.
+ */
+function compile(text) {
+  const tokens = tokenize(text);
+  if (!tokens || !tokens.length) return null;
+  let i = 0;
+  const peek = () => tokens[i]?.op;
+
+  function expression() {
+    let left = term();
+    while (left && (peek() === "+" || peek() === "-")) {
+      const op = tokens[i++].op;
+      const right = term();
+      if (!right) return null;
+      const l = left;
+      left = op === "+" ? (d) => l(d) + right(d) : (d) => l(d) - right(d);
+    }
+    return left;
+  }
+
+  function term() {
+    let left = factor();
+    while (left && (peek() === "*" || peek() === "/")) {
+      const op = tokens[i++].op;
+      const right = factor();
+      if (!right) return null;
+      const l = left;
+      left = op === "*" ? (d) => l(d) * right(d) : (d) => l(d) / right(d);
+    }
+    return left;
+  }
+
+  function factor() {
+    const token = tokens[i++];
+    if (!token) return null;
+    if (token.number !== undefined) return () => token.number;
+    if (token.duration) return (d) => d;
+    if (token.op === "-" || token.op === "+") {
+      const inner = factor();
+      if (!inner) return null;
+      return token.op === "-" ? (d) => -inner(d) : inner;
+    }
+    if (token.op === "(") {
+      const inner = expression();
+      if (!inner || tokens[i++]?.op !== ")") return null;
+      return inner;
+    }
+    return null;
+  }
+
+  const result = expression();
+  return result && i === tokens.length ? result : null;
+}
+
+const compiled = new Map();
+
+function compiledExpression(text) {
+  if (!compiled.has(text)) compiled.set(text, compile(text));
+  return compiled.get(text);
+}
+
+/**
+ * Validates a start expression. Returns it with whitespace tidied, or null if
+ * it doesn't mention the duration, is too long, or doesn't parse.
+ */
+export function parseStartExpression(value) {
+  if (typeof value !== "string") return null;
+  const text = value.trim().replace(/\s+/g, " ");
+  if (!text || text.length > MAX_EXPRESSION_LENGTH || !isStartExpression(text)) return null;
+  return compiledExpression(text) ? text : null;
+}
+
+/** Evaluates a valid expression for a duration, in minutes rounded to the second (NaN if undefined, e.g. / 0). */
+export function evaluateStartExpression(expression, durationMinutes) {
+  const fn = compiledExpression(expression);
+  const minutes = fn ? fn(durationMinutes) : NaN;
+  return Number.isFinite(minutes) ? Math.round(minutes * 60) / 60 : NaN;
+}
+
 function normalizeStart(raw, fallback) {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return fallback;
+  if (raw.expression !== undefined) {
+    const expression = parseStartExpression(raw.expression);
+    return expression ? { expression } : fallback;
+  }
   const minutes = parseStartMinutes(raw.minutes);
   if (minutes === null) return fallback;
   return { minutes, plusDuration: raw.plusDuration === true };
@@ -184,6 +301,7 @@ export function normalizeStyles(raw) {
 /** Effective start in minutes from zero, or null for the fallback style. */
 export function startMinutes(style, durationMinutes) {
   if (!style.start) return null;
+  if (style.start.expression !== undefined) return evaluateStartExpression(style.start.expression, durationMinutes);
   return style.start.plusDuration ? durationMinutes + style.start.minutes : style.start.minutes;
 }
 
@@ -197,7 +315,9 @@ export function resolveStyle(styles, remainingMs, durationMinutes) {
   const fallback = styles.find((style) => style.enabled && style.start === null) ?? null;
   const timed = styles
     .filter((style) => style.enabled && style.start !== null)
-    .map((style) => ({ style, at: startMinutes(style, durationMinutes) * MINUTE }));
+    .map((style) => ({ style, at: startMinutes(style, durationMinutes) * MINUTE }))
+    // An expression can be undefined for some durations (e.g. dividing by zero).
+    .filter((t) => Number.isFinite(t.at));
   // Closest to zero first on each side; a stable sort keeps list order for ties.
   const before = timed.filter((t) => t.at > 0).sort((a, b) => a.at - b.at);
   const after = timed.filter((t) => t.at <= 0).sort((a, b) => b.at - a.at);
@@ -215,7 +335,11 @@ export function resolveStyle(styles, remainingMs, durationMinutes) {
 /** Styles in display order: the fallback first, then by start, largest to smallest. */
 export function sortStylesForDisplay(styles, durationMinutes) {
   return styles
-    .map((style, index) => ({ style, index, at: startMinutes(style, durationMinutes) }))
+    .map((style, index) => {
+      const at = startMinutes(style, durationMinutes);
+      // Undefined expressions sort last.
+      return { style, index, at: Number.isNaN(at) ? -Infinity : at };
+    })
     .sort((a, b) => {
       if (a.at === null && b.at === null) return a.index - b.index;
       if (a.at === null) return -1;
@@ -227,10 +351,14 @@ export function sortStylesForDisplay(styles, durationMinutes) {
 
 const formatMinutes = (minutes) => String(Number(minutes.toFixed(2)));
 
-/** Human-readable start, e.g. "10 min (duration + 5)", "-60 min", "Otherwise". */
+/** Human-readable start, e.g. "10 min (duration + 5)", "-60 min", "2 min ($duration / 10)", "Otherwise". */
 export function describeStart(style, durationMinutes) {
   if (!style.start) return "Otherwise";
-  const total = `${formatMinutes(startMinutes(style, durationMinutes))} min`;
+  const minutes = startMinutes(style, durationMinutes);
+  if (style.start.expression !== undefined) {
+    return Number.isNaN(minutes) ? `Undefined (${style.start.expression})` : `${formatMinutes(minutes)} min (${style.start.expression})`;
+  }
+  const total = `${formatMinutes(minutes)} min`;
   if (!style.start.plusDuration) return total;
   const offset = style.start.minutes;
   if (offset === 0) return `${total} (duration)`;

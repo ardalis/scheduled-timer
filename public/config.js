@@ -3,13 +3,16 @@
 
 import { DEFAULT_MINUTES } from "./timer-core.js";
 import { defaultStyles, normalizeStyles } from "./styles-core.js";
+import { DEFAULT_THEME_ID, normalizeThemes } from "./themes-core.js";
 
 export const CONFIG_KEY = "scheduled-timer:config";
 // Up to a day; anything longer isn't a presentation timer.
 export const MAX_DURATION_MINUTES = 24 * 60;
 
 export function defaultConfig() {
-  return { durationMinutes: DEFAULT_MINUTES, styles: defaultStyles() };
+  // themeId: the theme last chosen or saved (null if none); the styles are a
+  // working copy that may have changed since.
+  return { durationMinutes: DEFAULT_MINUTES, styles: defaultStyles(), themes: [], themeId: DEFAULT_THEME_ID };
 }
 
 /**
@@ -35,6 +38,10 @@ export function normalizeConfig(raw) {
     const duration = parseDurationMinutes(raw.durationMinutes);
     if (duration !== null) config.durationMinutes = duration;
     config.styles = normalizeStyles(raw.styles);
+    config.themes = normalizeThemes(raw.themes);
+    const known = raw.themeId === DEFAULT_THEME_ID || config.themes.some((theme) => theme.id === raw.themeId);
+    // Configs from before themes have no themeId; their styles started as Default.
+    config.themeId = raw.themeId === undefined || known ? raw.themeId ?? DEFAULT_THEME_ID : null;
   }
   return config;
 }
