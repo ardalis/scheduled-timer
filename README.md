@@ -20,7 +20,8 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 
 - Full-screen countdown in a large font (defaults to 5 minutes), shown as `mm:ss`, or `hh:mm:ss` for an hour or more.
 - At zero it keeps counting over time as a negative number (`-00:01`, `-00:02`, …), and stops once it's an hour over.
-- Styles set the background, text color, font, size, and shadow for each stage of the countdown. Built in: **Inactive** (muted grey, whenever no other style applies), **Starting Soon** (blue, handwritten, from 5 minutes before the start), **Active** (green, bold, from the start), and **Overtime** (red, Bangers, from zero to an hour over). Built-in styles can be edited or disabled; custom styles can be added and deleted. Each style starts a number of minutes from zero, and the closest to zero applies.
+- Styles set the background, text color, font, size, and shadow for each stage of the countdown. Built in: **Inactive** (muted grey, whenever no other style applies), **Starting Soon** (blue, handwritten, from 5 minutes before the start), **Active** (green, bold, from the start), and **Overtime** (red, Bangers, from zero to an hour over). Built-in styles can be edited or disabled; custom styles can be added and deleted. Each style starts a number of minutes from zero, and the closest to zero applies. A start can also be an expression of the presentation duration, such as `$duration / 10` or `$duration - 5`, so styles adapt to talks of any length.
+- Themes are named sets of styles. Save the current styles as a theme, switch between saved themes (or back to Default) in configuration, and export or import themes as JSON files to share them.
 - Configuration (the gear icon, top right) sets the timer duration to any number of minutes. Settings are saved in browser storage (`localStorage`).
 - Pick a start time; it's scheduled for the next occurrence of that local time within 24 hours.
 - Before the start, shows "Timer will begin in (timespan)." in natural units.
@@ -62,8 +63,8 @@ npm test
 
 `npm test` runs, in order:
 
-- **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule) the configuration storage in `public/config.js`, and choosing styles in `public/styles-core.js`. Prints unit coverage.
-- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, configuration, styles, reloads, keyboard shortcuts, and auto-hiding controls.
+- **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule) the configuration storage in `public/config.js`, choosing styles and evaluating start expressions in `public/styles-core.js`, and saving, importing, and exporting themes in `public/themes-core.js`. Prints unit coverage.
+- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, configuration, styles, themes, reloads, keyboard shortcuts, and auto-hiding controls.
 - **Coverage** (`npm run coverage`): merges V8 coverage from both suites and prints a combined report for `public/`. HTML and `lcov.info` reports are written to `coverage/`.
 
 Each step can also be run on its own. CI runs `npm test` on every push to `main` and on pull requests.

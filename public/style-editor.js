@@ -5,8 +5,11 @@ import { formatClock } from "./timer-core.js";
 import {
   FONTS,
   WEIGHTS,
+  MAX_START_MINUTES,
   describeStart,
+  isStartExpression,
   newCustomStyle,
+  parseStartExpression,
   parseStartMinutes,
   parseStyleName,
   sortStylesForDisplay,
@@ -129,7 +132,19 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     if (name === null) errors.name = "Enter a name (up to 40 characters).";
     else editing.name = name;
 
-    if (editing.start !== null) {
+    if (editing.start !== null && isStartExpression(els.start.value)) {
+      const expression = parseStartExpression(els.start.value);
+      const minutes = expression && startMinutes({ start: { expression } }, getDurationMinutes());
+      if (expression === null) {
+        errors.start = "Use numbers, $duration, + - * /, and parentheses, e.g. $duration / 10.";
+      } else if (Number.isNaN(minutes)) {
+        errors.start = "That expression has no value with the current duration (dividing by zero?).";
+      } else if (Math.abs(minutes) > MAX_START_MINUTES) {
+        errors.start = `That's ${Math.round(minutes)} minutes with the current duration; keep it between -1440 and 1440.`;
+      } else {
+        editing.start = { expression };
+      }
+    } else if (editing.start !== null) {
       const minutes = parseStartMinutes(els.start.value);
       const plusDuration = els.plusDuration.checked;
       if (minutes === null) {
@@ -156,7 +171,9 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     applyStyleVars(els.preview, editing);
     const duration = getDurationMinutes();
     const at = startMinutes(editing, duration);
-    els.previewClock.textContent = formatClock((at ?? duration) * 60 * 1000);
+    els.previewClock.textContent = formatClock((Number.isFinite(at) ? at : duration) * 60 * 1000);
+    // The checkbox doesn't apply to an expression, which says how it uses the duration.
+    els.plusDuration.disabled = isStartExpression(els.start.value);
     els.sizeValue.textContent = `${editing.sizePercent}%`;
     els.startHint.textContent =
       editing.start === null ? "" : `Starts at ${describeStart(editing, duration)} with the current duration.`;
@@ -172,7 +189,10 @@ export function setupStyleEditor({ getStyles, setStyles, getDurationMinutes }) {
     const hasStart = editing.start !== null;
     els.startField.hidden = !hasStart;
     els.fallbackHint.hidden = hasStart;
-    if (hasStart) {
+    if (hasStart && editing.start.expression !== undefined) {
+      els.start.value = editing.start.expression;
+      els.plusDuration.checked = false;
+    } else if (hasStart) {
       els.start.value = String(editing.start.minutes);
       els.plusDuration.checked = editing.start.plusDuration;
     }

@@ -340,8 +340,22 @@ input[aria-invalid="true"] {
   gap: 0.75rem;
 }
 
-.inline input[type="number"] {
-  width: 7rem;
+.inline input[type="number"],
+.inline #style-start {
+  width: 9rem;
+}
+
+.inline .grow {
+  flex: 1 1 10rem;
+  width: auto;
+}
+
+.field > .inline + .inline {
+  margin-top: 0.25rem;
+}
+
+.hint code {
+  font-size: 0.95em;
 }
 
 .field-grid {

@@ -49,6 +49,28 @@
         <p id="config-duration-pending" class="hint" hidden>The new duration applies when the current timer is reset.</p>
       </div>
 
+      <section class="field" aria-labelledby="themes-heading">
+        <div class="section-header">
+          <h3 id="themes-heading">Theme</h3>
+        </div>
+        <p class="hint">A theme is a named set of styles. Choosing one replaces the styles below.</p>
+        <div class="inline">
+          <select id="theme-select" aria-label="Theme" class="grow"></select>
+          <button type="button" id="theme-delete" class="danger">Delete theme</button>
+        </div>
+        <div class="inline">
+          <input id="theme-name" type="text" maxlength="40" aria-label="Theme name" placeholder="Theme name" class="grow">
+          <button type="button" id="theme-save">Save as theme</button>
+        </div>
+        <div class="inline">
+          <button type="button" id="theme-export">Export theme</button>
+          <button type="button" id="theme-import">Import theme</button>
+          <input id="theme-import-file" type="file" accept=".json,application/json" hidden aria-label="Theme file">
+        </div>
+        <p id="theme-status" class="hint" role="status"></p>
+        <p id="theme-error" class="error" role="alert" hidden></p>
+      </section>
+
       <section class="field" aria-labelledby="styles-heading">
         <div class="section-header">
           <h3 id="styles-heading">Styles</h3>
@@ -87,9 +109,11 @@
       <div class="field" id="style-start-field">
         <label for="style-start">Starts at (minutes from zero)</label>
         <div class="inline">
-          <input id="style-start" type="number" step="any" inputmode="decimal" aria-describedby="style-start-hint style-start-error">
+          <input id="style-start" type="text" spellcheck="false" autocomplete="off"
+            aria-describedby="style-start-hint style-start-error">
           <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the timer duration</label>
         </div>
+        <p class="hint">Or use <code>$duration</code>, the presentation duration, e.g. <code>$duration / 10</code>.</p>
         <p id="style-start-hint" class="hint"></p>
         <p id="style-start-error" class="error" role="alert" hidden></p>
       </div>

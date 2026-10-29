@@ -21,6 +21,7 @@ import {
 } from "./config.js";
 import { resolveStyle } from "./styles-core.js";
 import { applyStyleVars, setupStyleEditor } from "./style-editor.js";
+import { setupThemePicker } from "./theme-picker.js";
 
 const SCHEDULE_COOKIE = "scheduledStart";
 // Older versions stored the duration in this cookie; it's migrated to the config.
@@ -270,9 +271,18 @@ const styleEditor = setupStyleEditor({
   getStyles: () => draft.styles,
   setStyles: (styles) => {
     draft.styles = styles;
+    themePicker.render();
   },
   // Show relative starts against the duration being typed, if it's valid.
   getDurationMinutes: () => parseDurationMinutes(els.configDuration.value) ?? draft.durationMinutes,
+});
+
+const themePicker = setupThemePicker({
+  getDraft: () => draft,
+  applyStyles: (styles) => {
+    draft.styles = styles;
+    styleEditor.renderList();
+  },
 });
 
 function openConfig() {
@@ -280,6 +290,7 @@ function openConfig() {
   draft = loadConfig(storage);
   els.configDuration.value = formatDurationMinutes(draft.durationMinutes);
   styleEditor.renderList();
+  themePicker.reset();
   showDurationError("");
   els.configStorageError.hidden = true;
   els.configDurationPending.hidden = !(state.mode === "running" || state.mode === "paused");
