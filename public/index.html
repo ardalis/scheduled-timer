@@ -41,10 +41,10 @@
       <h2 id="config-title">Configuration</h2>
 
       <div class="field">
-        <label for="config-duration">Timer duration (minutes)</label>
+        <label for="config-duration">Presentation duration (minutes)</label>
         <input id="config-duration" name="durationMinutes" type="number" min="0.0167" max="1440" step="any"
           inputmode="decimal" required aria-describedby="config-duration-hint config-duration-error">
-        <p id="config-duration-hint" class="hint">Any number of minutes, e.g. 20 or 7.5.</p>
+        <p id="config-duration-hint" class="hint">How long your talk is; the timer counts down from this. Any number of minutes, e.g. 20 or 7.5.</p>
         <p id="config-duration-error" class="error" role="alert" hidden></p>
         <p id="config-duration-pending" class="hint" hidden>The new duration applies when the current timer is reset.</p>
       </div>
@@ -118,7 +118,7 @@
         <div class="inline">
           <input id="style-start" type="text" spellcheck="false" autocomplete="off"
             aria-describedby="style-start-hint style-start-error">
-          <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the timer duration</label>
+          <label class="checkbox"><input id="style-plus-duration" type="checkbox"> plus the presentation duration</label>
         </div>
         <p class="hint">Or use <code>$duration</code>, the presentation duration, e.g. <code>$duration / 10</code>.</p>
         <p id="style-start-hint" class="hint"></p>

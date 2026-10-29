@@ -24,7 +24,7 @@ export function defaultConfig() {
 }
 
 /**
- * Validates a timer duration in minutes. Any positive number is allowed
+ * Validates a presentation duration in minutes. Any positive number is allowed
  * (fractions too, rounded to the nearest second) up to MAX_DURATION_MINUTES.
  * Returns the normalized number of minutes, or null if invalid.
  */
