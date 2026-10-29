@@ -3,9 +3,7 @@ import assert from "node:assert/strict";
 import {
   DAY_MS,
   DEFAULT_MINUTES,
-  MAX_MINUTES,
   MAX_SCHEDULE_AHEAD_MS,
-  clampMinutes,
   defaultStartTimeValue,
   formatClock,
   formatTimespan,
@@ -115,9 +113,18 @@ describe("formatClock", () => {
     assert.equal(formatClock(-5 * SECOND), "00:00");
   });
 
-  it("lets minutes exceed 59 for long timers", () => {
-    assert.equal(formatClock(90 * MINUTE), "90:00");
-    assert.equal(formatClock(MAX_MINUTES * MINUTE), "999:00");
+  it("uses mm:ss under an hour", () => {
+    assert.equal(formatClock(59 * MINUTE + 59 * SECOND), "59:59");
+    // A partial second under the hour still rounds up to the hour.
+    assert.equal(formatClock(HOUR - 1), "01:00:00");
+  });
+
+  it("uses hh:mm:ss from an hour up", () => {
+    assert.equal(formatClock(HOUR), "01:00:00");
+    assert.equal(formatClock(HOUR + 1), "01:00:01");
+    assert.equal(formatClock(90 * MINUTE), "01:30:00");
+    assert.equal(formatClock(10 * HOUR + 5 * MINUTE + 7 * SECOND), "10:05:07");
+    assert.equal(formatClock(24 * HOUR), "24:00:00");
   });
 });
 
@@ -149,32 +156,6 @@ describe("formatTimespan", () => {
 
   it("rounds partial seconds up, matching the clock", () => {
     assert.equal(formatTimespan(29 * MINUTE + 59 * SECOND + 1), "30 minutes");
-  });
-});
-
-describe("clampMinutes", () => {
-  it("accepts whole numbers in range", () => {
-    assert.equal(clampMinutes(1), 1);
-    assert.equal(clampMinutes("10"), 10);
-    assert.equal(clampMinutes(MAX_MINUTES), MAX_MINUTES);
-  });
-
-  it("rounds fractional minutes", () => {
-    assert.equal(clampMinutes(2.4), 2);
-    assert.equal(clampMinutes("2.5"), 3);
-  });
-
-  it("clamps to the allowed range", () => {
-    assert.equal(clampMinutes(-3), 1);
-    assert.equal(clampMinutes(0.4), 1);
-    assert.equal(clampMinutes(-Infinity), DEFAULT_MINUTES);
-    assert.equal(clampMinutes(5000), MAX_MINUTES);
-  });
-
-  it("falls back to the default for empty or invalid input", () => {
-    for (const value of [0, "", "abc", null, undefined, NaN, Infinity]) {
-      assert.equal(clampMinutes(value), DEFAULT_MINUTES, String(value));
-    }
   });
 });
 

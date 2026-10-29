@@ -1,6 +1,5 @@
 import {
   DEFAULT_MINUTES,
-  clampMinutes,
   defaultStartTimeValue,
   formatClock,
   formatTimespan,
@@ -11,9 +10,17 @@ import {
   scheduleCookieMaxAge,
   toTimeInputValue,
 } from "./timer-core.js";
+import {
+  formatDurationMinutes,
+  hasStoredConfig,
+  loadConfig,
+  parseDurationMinutes,
+  saveConfig,
+} from "./config.js";
 
 const SCHEDULE_COOKIE = "scheduledStart";
-const MINUTES_COOKIE = "timerMinutes";
+// Older versions stored the duration in this cookie; it's migrated to the config.
+const LEGACY_MINUTES_COOKIE = "timerMinutes";
 const CONTROLS_IDLE_MS = 3000;
 
 const $ = (id) => document.getElementById(id);
@@ -24,11 +31,26 @@ const els = {
   form: $("schedule-form"),
   startTime: $("start-time"),
   cancelSchedule: $("cancel-schedule"),
-  duration: $("duration"),
   startPause: $("start-pause"),
   reset: $("reset"),
   fullscreen: $("fullscreen"),
+  configButton: $("config-button"),
+  configDialog: $("config-dialog"),
+  configForm: $("config-form"),
+  configDuration: $("config-duration"),
+  configDurationError: $("config-duration-error"),
+  configDurationPending: $("config-duration-pending"),
+  configStorageError: $("config-storage-error"),
+  configCancel: $("config-cancel"),
 };
+
+const storage = (() => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null; // e.g. storage disabled by browser settings
+  }
+})();
 
 // ---- Cookies -------------------------------------------------------------
 
@@ -71,10 +93,7 @@ function setMode(mode) {
 }
 
 function setDurationMinutes(minutes) {
-  const value = clampMinutes(minutes);
-  els.duration.value = value;
-  state.durationMs = value * 60 * 1000;
-  setCookie(MINUTES_COOKIE, String(value), 365 * 24 * 60 * 60);
+  state.durationMs = Math.round(minutes * 60 * 1000);
   if (state.mode === "idle" || state.mode === "waiting" || state.mode === "finished") {
     state.remaining = state.durationMs;
     if (state.mode === "finished") setMode("idle");
@@ -124,7 +143,10 @@ function render() {
   const now = Date.now();
   const remaining = currentRemaining(now);
   const clock = formatClock(remaining);
-  if (els.display.textContent !== clock) els.display.textContent = clock;
+  if (els.display.textContent !== clock) {
+    els.display.textContent = clock;
+    els.display.style.setProperty("--chars", clock.length);
+  }
   document.title = state.mode === "running" ? `${clock} · Scheduled Timer` : "Scheduled Timer";
 
   els.body.classList.toggle(
@@ -145,7 +167,6 @@ function render() {
   els.cancelSchedule.hidden = state.mode !== "waiting";
   els.startPause.textContent =
     state.mode === "running" ? "Pause" : state.mode === "paused" ? "Resume" : "Start now";
-  els.duration.disabled = state.mode === "running" || state.mode === "paused";
   els.startTime.title =
     state.mode === "waiting" ? `Scheduled for ${formatLocalTime(new Date(state.scheduledStart))}` : "";
 }
@@ -186,12 +207,54 @@ els.form.addEventListener("submit", (event) => {
 
 els.cancelSchedule.addEventListener("click", reset);
 
-els.duration.addEventListener("change", () => {
-  setDurationMinutes(els.duration.value);
+// ---- Configuration -------------------------------------------------------
+
+function applyConfig(config) {
+  setDurationMinutes(config.durationMinutes);
   // Re-save the cookie so its lifetime covers the new duration.
   if (state.mode === "waiting") schedule(state.scheduledStart);
   render();
+}
+
+function showDurationError(message) {
+  els.configDurationError.textContent = message;
+  els.configDurationError.hidden = !message;
+  els.configDuration.setAttribute("aria-invalid", message ? "true" : "false");
+}
+
+function openConfig() {
+  // Always reload from storage, so the dialog shows what is actually saved.
+  const config = loadConfig(storage);
+  els.configDuration.value = formatDurationMinutes(config.durationMinutes);
+  showDurationError("");
+  els.configStorageError.hidden = true;
+  els.configDurationPending.hidden = !(state.mode === "running" || state.mode === "paused");
+  els.configDialog.showModal();
+  els.configDuration.select();
+}
+
+els.configButton.addEventListener("click", openConfig);
+els.configCancel.addEventListener("click", () => els.configDialog.close());
+
+els.configForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const durationMinutes = parseDurationMinutes(els.configDuration.value);
+  if (durationMinutes === null) {
+    showDurationError("Enter a number of minutes greater than 0 and at most 1440.");
+    els.configDuration.focus();
+    return;
+  }
+  const config = { ...loadConfig(storage), durationMinutes };
+  const saved = saveConfig(storage, config);
+  applyConfig(config);
+  if (saved) {
+    els.configDialog.close();
+  } else {
+    els.configStorageError.hidden = false;
+  }
 });
+
+els.configDuration.addEventListener("input", () => showDurationError(""));
 
 els.startPause.addEventListener("click", () => {
   if (state.mode === "running") {
@@ -219,6 +282,7 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (els.configDialog.open) return;
   if (event.target instanceof HTMLInputElement) return;
   // Let focused buttons handle Space/Enter themselves.
   if (event.target instanceof HTMLButtonElement && event.key === " ") return;
@@ -238,7 +302,7 @@ function showControls() {
   idleTimer = setTimeout(() => {
     const focusedInControls = document.getElementById("controls").contains(document.activeElement)
       && document.activeElement instanceof HTMLInputElement;
-    if (state.mode === "running" && !focusedInControls) {
+    if (state.mode === "running" && !focusedInControls && !els.configDialog.open) {
       els.body.classList.add("controls-hidden");
     }
   }, CONTROLS_IDLE_MS);
@@ -249,8 +313,21 @@ function showControls() {
 
 // ---- Init ----------------------------------------------------------------
 
+function loadInitialConfig() {
+  const config = loadConfig(storage);
+  const legacy = getCookie(LEGACY_MINUTES_COOKIE);
+  if (legacy === null) return config;
+  const legacyMinutes = parseDurationMinutes(legacy);
+  if (legacyMinutes !== null && !hasStoredConfig(storage)) {
+    config.durationMinutes = legacyMinutes;
+    saveConfig(storage, config);
+  }
+  deleteCookie(LEGACY_MINUTES_COOKIE);
+  return config;
+}
+
 function init() {
-  setDurationMinutes(getCookie(MINUTES_COOKIE) ?? DEFAULT_MINUTES);
+  setDurationMinutes(loadInitialConfig().durationMinutes);
 
   const restored = restoreSchedule(getCookie(SCHEDULE_COOKIE), state.durationMs, Date.now());
   if (restored.mode === "waiting") {

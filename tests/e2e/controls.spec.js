@@ -24,7 +24,7 @@ test.describe("keyboard and controls", () => {
 
   test("Space while typing in an input does not toggle the timer", async ({ timer }) => {
     await timer.open();
-    await timer.duration.focus();
+    await timer.startTime.focus();
     await timer.page.keyboard.press("Space");
     await timer.expectState("idle");
   });
