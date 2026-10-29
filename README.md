@@ -31,6 +31,7 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 - Start/pause/reset manually. Reset takes a second click within 4 seconds, so it's hard to hit by accident. `F` toggles full screen.
 - Safe with a presentation remote: by default no key changes the timer, and clicking a control doesn't leave it focused, so keys a remote sends to this window (Page Down, arrows, Enter, Space, B) can't start, pause, reset, or reschedule it. `Space` to start and pause can be turned on in configuration.
 - Controls and cursor hide while the timer is running and the mouse is idle.
+- A GitHub icon (top left) links to this repo, and configuration links to the issues page for bugs and suggestions.
 
 ## Prerequisites
 
@@ -67,7 +68,7 @@ npm test
 `npm test` runs, in order:
 
 - **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, the schedule summary, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule) the configuration storage in `public/config.js`, choosing styles and evaluating start expressions in `public/styles-core.js`, timing effects in `public/effects-core.js`, choosing sounds in `public/sounds-core.js`, and saving, importing, and exporting themes in `public/themes-core.js`. Prints unit coverage.
-- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, configuration, sounds, styles, effects, themes, reloads, keyboard shortcuts, and auto-hiding controls.
+- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, configuration, sounds, styles, effects, themes, links, reloads, keyboard shortcuts, and auto-hiding controls.
 - **Coverage** (`npm run coverage`): merges V8 coverage from both suites and prints a combined report for `public/`. HTML and `lcov.info` reports are written to `coverage/`.
 
 Each step can also be run on its own. CI runs `npm test` on every push to `main` and on pull requests.
