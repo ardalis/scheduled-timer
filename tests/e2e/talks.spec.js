@@ -576,6 +576,49 @@ test.describe("multiple talks", () => {
     await expect(timer.talkList).toContainText("Second");
   });
 
+  test("follows talks added and removed in another tab", async ({ page, timer }) => {
+    await timer.open();
+    await timer.expectState("idle");
+
+    const other = new TimerPage(await page.context().newPage());
+    await other.page.goto("/");
+    await other.scheduleAt("10:30", { name: "First", minutes: 20 });
+    await timer.expectState("waiting");
+    await expect(timer.display).toHaveText("20:00");
+
+    await other.click(other.cancelSchedule);
+    await timer.expectState("idle");
+    await expect(timer.display).toHaveText("05:00");
+  });
+
+  test("a talk changed in another tab leaves a running timer alone", async ({ page, timer }) => {
+    await timer.open();
+    await timer.scheduleAt("10:01", { name: "First", minutes: 20 });
+    await timer.jump(MINUTE);
+    await timer.expectState("running");
+
+    const other = new TimerPage(await page.context().newPage());
+    await other.page.goto("/");
+    await other.scheduleAt("11:00", { name: "Second", minutes: 30 });
+    await expect(timer.talkList.locator("li")).toHaveCount(1);
+    await timer.expectState("running");
+    await expect(timer.status).toHaveText("First");
+  });
+
+  test("removing a talk while a timer runs leaves the timer alone", async ({ timer }) => {
+    await timer.open();
+    await timer.scheduleAt("10:01", { name: "First", minutes: 20 });
+    await timer.scheduleAt("11:00", { name: "Second", minutes: 30 });
+    await timer.jump(MINUTE);
+    await timer.expectState("running");
+
+    await timer.click(timer.talksToggle);
+    await timer.click(timer.talkList.getByRole("button", { name: "Remove Second", exact: true }));
+    await expect(timer.talksToggle).toBeHidden();
+    await timer.expectState("running");
+    await expect(timer.status).toHaveText("First");
+  });
+
   test("warns when talks can't be saved, and still keeps the next one across a reload", async ({ page, timer }) => {
     await page.addInitScript(() => {
       Object.defineProperty(window, "localStorage", {
