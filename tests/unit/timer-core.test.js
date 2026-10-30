@@ -371,4 +371,10 @@ describe("scheduleSummary", () => {
   it("never counts below zero", () => {
     assert.equal(scheduleSummary(5, now, now + SECOND, formatTime)[3], "00:00 minutes to go!");
   });
+
+  it("names the talk when it has a name", () => {
+    const now = Date.now();
+    assert.equal(scheduleSummary(20, now, now, formatTime, "Clean Code")[0], "Your 20 minute presentation “Clean Code”");
+    assert.equal(scheduleSummary(20, now, now, formatTime, "")[0], "Your 20 minute presentation");
+  });
 });

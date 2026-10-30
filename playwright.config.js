@@ -6,6 +6,9 @@ export default defineConfig({
   testDir: "tests/e2e",
   globalSetup: "./tests/e2e/global-setup.js",
   fullyParallel: true,
+  // Locally, leave room for everything else on the machine: more workers peg the
+  // CPU for little gain, since the tests mostly wait on a browser.
+  workers: process.env.CI ? undefined : "25%",
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
