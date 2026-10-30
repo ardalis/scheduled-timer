@@ -120,9 +120,10 @@ test.describe("schedule", () => {
     await expect(timer.display).toHaveText("02:00");
   });
 
-  test("rescheduling replaces the previous schedule", async ({ timer }) => {
+  test("rescheduling is cancelling and scheduling again", async ({ timer }) => {
     await timer.open();
     await timer.scheduleAt("10:30");
+    await timer.click(timer.cancelSchedule);
     await timer.scheduleAt("10:45");
     await expect(timer.status).toHaveText("Timer will begin in 45 minutes.");
     expect(Number((await timer.cookie("scheduledStart")).value)).toBe(MORNING.getTime() + 45 * MINUTE);

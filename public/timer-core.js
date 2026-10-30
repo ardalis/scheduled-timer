@@ -144,12 +144,14 @@ export function describeDay(start, now = new Date()) {
  * The lines of the summary card on the Inactive screen while a start is
  * scheduled, e.g. "Your 20 minute presentation" / "is scheduled for" /
  * "10:30 AM TODAY" / "29:59 minutes to go!". `formatTime` formats the start.
+ * A `name` follows the first line: Your 20 minute presentation “Clean Code”.
  */
-export function scheduleSummary(durationMinutes, startMs, nowMs, formatTime) {
+export function scheduleSummary(durationMinutes, startMs, nowMs, formatTime, name = "") {
   const untilStart = Math.max(0, startMs - nowMs);
   const unit = Math.ceil(untilStart / 1000) >= 3600 ? "hours" : "minutes";
+  const presentation = `Your ${Number(durationMinutes.toFixed(2))} minute presentation`;
   return [
-    `Your ${Number(durationMinutes.toFixed(2))} minute presentation`,
+    name ? `${presentation} “${name}”` : presentation,
     "is scheduled for",
     `${formatTime(new Date(startMs))} ${describeDay(new Date(startMs), new Date(nowMs))}`,
     `${formatClock(untilStart)} ${unit} to go!`,

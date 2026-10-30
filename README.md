@@ -25,8 +25,10 @@ Most apps like the built-in timers and alarms on a phone support *either* schedu
 - Themes are named sets of styles. Save the current styles as a theme, switch between saved themes (or back to Default) in configuration, and export or import themes as JSON files to share them.
 - Configuration (the gear icon, top right) sets the presentation duration (how long the talk is, and so where the countdown starts) to any number of minutes. Settings are saved in browser storage (`localStorage`).
 - Pick a start time; it's scheduled for the next occurrence of that local time within 24 hours.
-- Before the start, shows "Timer will begin in (timespan)." in natural units. While the Inactive look applies (before Starting Soon), a card summarizes the timing instead: "Your 20 minute presentation is scheduled for 10:30 AM TODAY", with a countdown to the start.
-- The scheduled start is stored in a cookie, so reloading the page keeps (or resumes) the timer.
+- Schedule as many talks as you like, each with an optional name and its own duration (leave Minutes blank to use the presentation duration). Talks can't overlap, though one can start the moment another ends. **Upcoming talks** in the controls lists them, where they can be removed; to change one, remove it and schedule it again.
+- Each talk starts on time whatever the timer is doing: if the previous talk is over time or paused, the next one takes over. Resetting moves on to the next talk. Scheduling a talk while a timer is running or paused leaves that timer alone until the talk starts.
+- Before the start, shows "Timer will begin in (timespan)." in natural units, using the talk's name if it has one. While the Inactive look applies (before Starting Soon), a card summarizes the timing instead: "Your 20 minute presentation “Clean Code” is scheduled for 10:30 AM TODAY", with a countdown to the start.
+- Talks are saved in browser storage and the current talk's start is stored in a cookie, so reloading the page keeps (or resumes) the timer.
 - Start/pause/reset manually. Reset takes a second click within 4 seconds, so it's hard to hit by accident. `F` toggles full screen.
 - Safe with a presentation remote: by default no key changes the timer, and clicking a control doesn't leave it focused, so keys a remote sends to this window (Page Down, arrows, Enter, Space, B) can't start, pause, reset, or reschedule it. `Space` to start and pause can be turned on in configuration.
 - Controls and cursor hide while the timer is running and the mouse is idle.
@@ -65,8 +67,8 @@ npm test
 
 `npm test` runs, in order:
 
-- **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, the schedule summary, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule) the configuration storage in `public/config.js`, choosing styles and evaluating start expressions in `public/styles-core.js`, timing effects in `public/effects-core.js`, and saving, importing, and exporting themes in `public/themes-core.js`. Prints unit coverage.
-- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, the cookie, configuration, styles, effects, themes, reloads, keyboard shortcuts, and auto-hiding controls.
+- **Unit tests** (`npm run test:unit`): Node's built-in test runner against the pure logic in `public/timer-core.js` (scheduling, the schedule summary, including daylight saving transitions, formatting, input parsing, and restoring a saved schedule) the configuration storage in `public/config.js`, storing and checking talks for overlaps in `public/talks-core.js`, choosing styles and evaluating start expressions in `public/styles-core.js`, timing effects in `public/effects-core.js`, and saving, importing, and exporting themes in `public/themes-core.js`. Prints unit coverage.
+- **End-to-end tests** (`npm run test:e2e`): Playwright drives the app in Chromium with a fake clock in the `America/New_York` time zone, covering the timer, scheduling, multiple talks, the cookie, configuration, styles, effects, themes, reloads, keyboard shortcuts, and auto-hiding controls.
 - **Coverage** (`npm run coverage`): merges V8 coverage from both suites and prints a combined report for `public/`. HTML and `lcov.info` reports are written to `coverage/`.
 
 Each step can also be run on its own. CI runs `npm test` on every push to `main` and on pull requests.

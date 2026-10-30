@@ -45,8 +45,13 @@ export class TimerPage {
     this.status = page.locator("#status");
     this.summary = page.locator("#summary");
     this.startTime = page.locator("#start-time");
+    this.talkName = page.locator("#talk-name");
+    this.talkDuration = page.locator("#talk-duration");
+    this.scheduleError = page.locator("#schedule-error");
+    this.talksToggle = page.locator("#talks-toggle");
+    this.talkList = page.locator("#talk-list");
     this.scheduleButton = page.getByRole("button", { name: "Schedule", exact: true });
-    this.cancelSchedule = page.getByRole("button", { name: "Cancel schedule" });
+    this.cancelSchedule = page.locator("#cancel-schedule");
     this.configButton = page.getByRole("button", { name: "Configuration" });
     this.configDialog = page.locator("#config-dialog");
     this.configDuration = page.getByLabel("Presentation duration (minutes)");
@@ -101,8 +106,10 @@ export class TimerPage {
     await expect(this.page.locator("body")).toHaveAttribute("data-state", state);
   }
 
-  async scheduleAt(hhmm) {
+  async scheduleAt(hhmm, { name = "", minutes = "" } = {}) {
     await this.startTime.fill(hhmm);
+    await this.talkName.fill(name);
+    await this.talkDuration.fill(String(minutes));
     await this.click(this.scheduleButton);
   }
 
